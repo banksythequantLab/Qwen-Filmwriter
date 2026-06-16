@@ -5,7 +5,7 @@ import { parseJson } from "./planner.mjs";
 
 const QA_SYS = `You are a practical visual QA reviewer for an AI film pipeline. You see ONE generated still and the prompt it should satisfy.
 Judge:
-(1) prompt_match - does it depict the prompt's subject, setting, framing, and mood?
+(1) prompt_match - does it SUBSTANTIALLY depict the prompt's subject, setting, and mood? Allow stylistic interpretation and minor framing/expression differences; fail ONLY on a clear mismatch of the main subject, setting, or mood.
 (2) spelling_ok - default TRUE. Set FALSE only if SHARP, IN-FOCUS, FOREGROUND text that the shot is clearly ABOUT is misspelled. Blurred, distant, or background signage NEVER counts as a failure - keep true.
 (3) anatomy_ok - are the MAIN human/creature bodies, hands, and faces correct? Ignore distant background figures. If no living subjects, true.
 Output ONLY the final verdict as STRICT JSON. No reasoning, no deliberation, no restating:
