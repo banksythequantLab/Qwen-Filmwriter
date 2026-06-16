@@ -1,0 +1,261 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Filmwriter — autonomous AI showrunner on Qwen Cloud</title>
+<style>
+:root{
+  --bg:#0a0d13; --bg2:#0d1119; --panel:#12161f; --bar:#171c27; --line:#222a38;
+  --fg:#e7ecf1; --dim:#8b95a5; --cyan:#46e0d0; --mag:#eb5fa0; --green:#7cde8c; --red:#e87878; --gold:#ebc478;
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--fg);font-family:ui-sans-serif,system-ui,"Segoe UI",Roboto,Helvetica,Arial}
+body{background:
+  radial-gradient(1200px 600px at 50% -10%, rgba(70,224,208,.10), transparent 60%),
+  radial-gradient(900px 500px at 90% 10%, rgba(235,95,160,.08), transparent 60%), var(--bg);}
+a{color:var(--cyan);text-decoration:none}
+.wrap{max-width:1080px;margin:0 auto;padding:0 22px}
+.mono{font-family:ui-monospace,"Consolas","SFMono-Regular",monospace}
+
+/* nav */
+.nav{display:flex;align-items:center;gap:14px;padding:22px 0}
+.brand{font-weight:800;letter-spacing:.14em;font-size:20px}
+.brand b{background:linear-gradient(90deg,var(--cyan),var(--mag));-webkit-background-clip:text;background-clip:text;color:transparent}
+.nav .tag{color:var(--dim);font-size:14px;letter-spacing:.02em}
+.nav .right{margin-left:auto;color:var(--dim);font-size:13px}
+.dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--green);box-shadow:0 0 10px var(--green);margin-right:6px;vertical-align:middle}
+
+/* hero */
+.hero{text-align:center;padding:40px 0 14px}
+.hero h1{font-size:64px;line-height:1.02;margin:.1em 0;font-weight:800;letter-spacing:-.01em}
+.hero h1 .g{background:linear-gradient(90deg,#bff7ef,var(--cyan) 45%,var(--mag));-webkit-background-clip:text;background-clip:text;color:transparent}
+.hero p{color:var(--dim);font-size:19px;margin:.2em 0 0}
+
+/* composer */
+.composer{margin:30px auto 8px;max-width:860px;background:linear-gradient(180deg,var(--panel),var(--bg2));
+  border:1px solid var(--line);border-radius:18px;padding:18px;box-shadow:0 20px 60px rgba(0,0,0,.45)}
+.composer textarea{width:100%;background:#0b0f16;color:var(--fg);border:1px solid var(--line);border-radius:12px;
+  padding:16px 18px;font-size:18px;resize:none;min-height:64px;outline:none;font-family:inherit}
+.composer textarea:focus{border-color:var(--cyan);box-shadow:0 0 0 3px rgba(70,224,208,.12)}
+.composer .tall{min-height:210px;resize:vertical;line-height:1.55}
+.modes{margin-bottom:12px}
+.modes button{font-weight:600}
+.row{display:flex;align-items:center;gap:12px;margin-top:14px;flex-wrap:wrap}
+.seg{display:flex;gap:6px;background:#0b0f16;border:1px solid var(--line);border-radius:10px;padding:4px}
+.seg button{background:transparent;border:0;color:var(--dim);padding:8px 12px;border-radius:7px;cursor:pointer;font-size:14px;font-weight:600}
+.seg button.on{background:var(--bar);color:var(--cyan)}
+.go{margin-left:auto;border:0;cursor:pointer;color:#04110f;font-weight:800;font-size:16px;letter-spacing:.01em;
+  padding:14px 26px;border-radius:12px;background:linear-gradient(90deg,var(--cyan),#8af0c0);box-shadow:0 8px 24px rgba(70,224,208,.28)}
+.go:disabled{opacity:.5;cursor:default;filter:grayscale(.3)}
+.hint{color:var(--dim);font-size:13px;margin:10px 2px 0}
+.chips{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin:14px auto 0;max-width:860px}
+.chip{background:#0b0f16;border:1px solid var(--line);color:var(--dim);border-radius:999px;padding:7px 13px;font-size:13px;cursor:pointer}
+.chip:hover{border-color:var(--cyan);color:var(--fg)}
+
+/* pipeline */
+.stage{max-width:980px;margin:26px auto 0;display:none}
+.pipe{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-bottom:14px}
+.step{border:1px solid var(--line);color:var(--dim);background:var(--panel);border-radius:10px;padding:8px 12px;font-size:13px;font-weight:600;transition:.25s}
+.step.on{color:#04110f;background:linear-gradient(90deg,var(--cyan),#8af0c0);border-color:transparent}
+.step.done{color:var(--green);border-color:rgba(124,222,140,.5)}
+
+/* terminal */
+.term{background:#0b0f16;border:1px solid var(--line);border-radius:14px;overflow:hidden}
+.term .bar{background:var(--bar);padding:10px 14px;display:flex;align-items:center;gap:8px;border-bottom:1px solid var(--line)}
+.term .bar i{width:12px;height:12px;border-radius:50%;display:inline-block}
+.term .bar .t{color:var(--dim);font-size:13px;margin-left:8px}
+.term pre{margin:0;padding:16px 18px;max-height:340px;overflow:auto;font-size:13.5px;line-height:1.55;white-space:pre-wrap;word-break:break-word}
+.c-cyan{color:var(--cyan)} .c-mag{color:var(--mag)} .c-green{color:var(--green)} .c-red{color:var(--red)} .c-gold{color:var(--gold)} .c-dim{color:var(--dim)}
+.result{margin-top:18px;display:none}
+.result video{width:100%;border-radius:14px;border:1px solid var(--line);background:#000;display:block}
+.result .meta{display:flex;align-items:center;gap:14px;margin-top:12px}
+.result .meta .ttl{font-weight:700;font-size:18px}
+.dl{margin-left:auto;border:1px solid var(--cyan);color:var(--cyan);background:transparent;border-radius:10px;padding:10px 16px;font-weight:600;cursor:pointer}
+.note{margin-top:14px;padding:12px 16px;border-radius:12px;background:rgba(235,95,160,.08);border:1px solid rgba(235,95,160,.35);color:#f3c6dd;font-size:14px;display:none}
+
+/* gallery */
+.sec{margin:54px auto 0}
+.sec h2{font-size:22px;letter-spacing:.02em;margin:0 0 4px} .sec .sub{color:var(--dim);font-size:14px;margin:0 0 18px}
+.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;overflow:hidden}
+.card video{width:100%;display:block;background:#000;aspect-ratio:16/9;object-fit:cover}
+.card .cap{padding:12px 14px;display:flex;align-items:center;gap:10px}
+.card .cap .ct{font-weight:700} .card .cap .cg{margin-left:auto;font-size:12px;color:var(--cyan);border:1px solid var(--line);border-radius:999px;padding:3px 9px}
+
+/* footer */
+.foot{margin:56px 0 50px;color:var(--dim);font-size:13px;text-align:center}
+.models{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin:14px 0}
+.models span{border:1px solid var(--line);border-radius:999px;padding:5px 11px}
+@media(max-width:760px){.hero h1{font-size:42px}.grid{grid-template-columns:1fr}}
+</style></head>
+<body>
+<div class="wrap">
+  <div class="nav">
+    <div class="brand">FILM<b>WRITER</b></div>
+    <div class="tag">· AI Showrunner on Qwen Cloud</div>
+    <div class="right"><span class="dot"></span><span id="health">live</span></div>
+  </div>
+
+  <div class="hero">
+    <h1>One logline in.<br><span class="g">A finished short out.</span></h1>
+    <p>An autonomous team of Qwen agents plans, directs, shoots, checks its own frames, and edits — no human in the loop.</p>
+  </div>
+
+  <div class="composer">
+    <div class="seg modes" id="modes">
+      <button data-mode="logline" class="on">Logline</button><button data-mode="chapter">Chapter</button>
+    </div>
+    <textarea id="logline" placeholder="A lonely android busker in a neon megacity discovers it can dream."></textarea>
+    <textarea id="chapter" class="tall" style="display:none" placeholder="Paste a whole chapter or passage from a book. Filmwriter reads it and adapts it faithfully into as many scenes as the story needs — characters, events, and order preserved."></textarea>
+    <div class="row">
+      <span class="hint" id="scenelabel" style="margin:0">Scenes</span>
+      <div class="seg" id="scenes">
+        <button data-n="1">1</button><button data-n="2">2</button>
+        <button data-n="3" class="on">3</button><button data-n="4">4</button><button data-n="5">5</button>
+      </div>
+      <div class="seg" id="maxscenes" style="display:none">
+        <button data-n="8">8</button><button data-n="12" class="on">12</button><button data-n="16">16</button><button data-n="20">20</button><button data-n="24">24</button>
+      </div>
+      <button class="go" id="go">Direct my film →</button>
+    </div>
+  </div>
+  <div class="chips" id="chips"></div>
+
+  <div class="stage" id="stage">
+    <div class="pipe" id="pipe"></div>
+    <div class="term">
+      <div class="bar"><i style="background:#ed6a5e"></i><i style="background:#f5bf4f"></i><i style="background:#62d16e"></i>
+        <span class="t mono" id="termtitle">showrun — directing…</span></div>
+      <pre class="mono" id="log"></pre>
+    </div>
+    <div class="note" id="note"></div>
+    <div class="result" id="result">
+      <video id="film" controls playsinline></video>
+      <div class="meta"><span class="ttl" id="filmtitle"></span>
+        <a class="dl" id="dl" download>Download .mp4</a></div>
+    </div>
+  </div>
+
+  <div class="sec">
+    <h2>Films it has already directed</h2>
+    <p class="sub">Each one generated end-to-end from a single logline on Qwen Cloud — montage, long-take, and character-continuity examples.</p>
+    <div class="grid" id="gallery"></div>
+  </div>
+
+  <div class="foot">
+    <div class="models">
+      <span>qwen-max</span><span>qwen-plus</span><span>qwen3-vl-plus</span><span>qwen-image-plus</span>
+      <span>qwen-image-edit-max</span><span>wan2.6</span><span>qwen3-tts-flash</span>
+    </div>
+    Filmwriter · Track 2: AI Showrunner · running on Alibaba Cloud
+  </div>
+</div>
+<script>
+const el=id=>document.getElementById(id);
+const esc=s=>String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+const STEPS=["Plan","Direct","Prompt","Render","Visual-QA","Edit","Voice","Stitch"];
+const EX=[
+ "A lonely android busker in a neon megacity discovers it can dream.",
+ "A lighthouse keeper races a storm to signal a lost ship.",
+ "Two rival street artists duel with living graffiti at midnight.",
+ "A retired courier robot plants a secret garden on a rooftop."];
+
+function colorize(line){
+  return esc(line)
+    .replace(/\[longtake\]/g,'<span class="c-cyan">[longtake]</span>')
+    .replace(/\[montage\]/g,'<span class="c-mag">[montage]</span>')
+    .replace(/pass=true/g,'<span class="c-green">pass=true</span>')
+    .replace(/pass=false/g,'<span class="c-red">pass=false</span>')
+    .replace(/\bSUCCEEDED\b/g,'<span class="c-green">SUCCEEDED</span>')
+    .replace(/(FINAL CUT[^\n]*)/g,'<span class="c-green">$1</span>')
+    .replace(/(== SHOWRUN ==)/g,'<span class="c-cyan">$1</span>')
+    .replace(/(reference:|title:)/g,'<span class="c-gold">$1</span>');
+}
+function buildPipe(){ el('pipe').innerHTML=STEPS.map(s=>'<div class="step">'+s+'</div>').join(''); }
+function setPipe(stage){ [...el('pipe').children].forEach((c,i)=>{ c.className='step'+(i<stage-1?' done':(i===stage-1?' on':'')); }); }
+function markAllDone(){ [...el('pipe').children].forEach(c=>c.className='step done'); }
+function stageFromLog(t){
+  let s=0;
+  if(/== SHOWRUN|title:/.test(t)) s=1;
+  if(/\[(longtake|montage)\]|scene \d/.test(t)) s=2;
+  if(/shot \d|reference:/.test(t)) s=3;
+  if(/still \d|i2v|take \[|pass=/.test(t)) s=Math.max(s,5);
+  if(/EDL/.test(t)) s=6;
+  if(/FINAL CUT/.test(t)) s=8;
+  return s;
+}
+
+let polling=null;
+async function run(){
+  let payload, title='showrun — directing…';
+  if(mode==='chapter'){
+    const chapter=el('chapter').value.trim();
+    if(!chapter) return fail('Paste a chapter or passage first.');
+    payload={chapter,maxScenes:+document.querySelector('#maxscenes .on').dataset.n};
+    title='showrun — adapting chapter…';
+  } else {
+    payload={logline:(el('logline').value.trim()||el('logline').placeholder),
+             scenes:+document.querySelector('#scenes .on').dataset.n};
+  }
+  el('go').disabled=true; el('stage').style.display='block';
+  el('result').style.display='none'; el('note').style.display='none'; el('log').innerHTML='';
+  el('termtitle').textContent=title; buildPipe();
+  el('stage').scrollIntoView({behavior:'smooth',block:'start'});
+  let r;
+  try{ r=await (await fetch('/showrun',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)})).json(); }
+  catch(e){ return fail('Could not reach the server.'); }
+  if(!r.jobId) return fail(r.error||'Failed to start.');
+  clearInterval(polling); poll(r.jobId); polling=setInterval(()=>poll(r.jobId),1500);
+}
+async function poll(id){
+  let j; try{ j=await (await fetch('/jobs/'+id)).json(); }catch{ return; }
+  el('log').innerHTML=(j.log||[]).map(colorize).join('\n'); el('log').scrollTop=1e9;
+  setPipe(j.status==='done'?8:stageFromLog((j.log||[]).join('\n')));
+  if(j.status==='done'){ clearInterval(polling); done(j); }
+  else if(j.status==='error'){ clearInterval(polling); fail(j.error||'Render failed.'); }
+}
+function done(j){
+  el('termtitle').textContent='showrun — complete'; markAllDone();
+  const f='/jobs/'+j.id+'/film';
+  el('film').src=f; el('filmtitle').textContent=j.title||'Your film'; el('dl').href=f;
+  el('result').style.display='block'; el('go').disabled=false;
+  el('result').scrollIntoView({behavior:'smooth',block:'center'});
+}
+function fail(msg){
+  el('go').disabled=false; const n=el('note'); n.style.display='block';
+  const quota=/quota|FreeTier/i.test(msg||'');
+  n.innerHTML='<b>'+(quota?'Live video tier paused':'Heads up')+':</b> '+esc(msg)+
+    (quota?' — the agents still planned and storyboarded above; browse finished films below.':'');
+  el('termtitle').textContent='showrun — stopped';
+}
+async function loadGallery(){
+  let d; try{ d=await (await fetch('/gallery')).json(); }catch{ return; }
+  el('gallery').innerHTML=(d.films||[]).map(f=>
+    '<div class="card"><video src="'+f.film+'" muted loop playsinline controls preload="metadata" '+
+    'onmouseover="this.play()" onmouseout="this.pause()"></video>'+
+    '<div class="cap"><span class="ct">'+esc(f.title)+'</span><span class="cg">'+esc(f.tag)+'</span></div></div>'
+  ).join('')||'<p class="sub">No films yet — direct one above.</p>';
+}
+el('chips').innerHTML=EX.map(t=>'<span class="chip">'+esc(t)+'</span>').join('');
+el('chips').onclick=e=>{ if(e.target.classList.contains('chip')){ setMode('logline'); el('logline').value=e.target.textContent; } };
+const segPick=(box,t)=>{ if(t.dataset.n){ [...box.children].forEach(b=>b.classList.remove('on')); t.classList.add('on'); } };
+el('scenes').onclick=e=>segPick(el('scenes'),e.target);
+el('maxscenes').onclick=e=>segPick(el('maxscenes'),e.target);
+let mode='logline';
+function setMode(m){ mode=m;
+  [...el('modes').children].forEach(b=>b.classList.toggle('on',b.dataset.mode===m));
+  el('logline').style.display=m==='logline'?'':'none';
+  el('chapter').style.display=m==='chapter'?'':'none';
+  el('scenes').style.display=m==='logline'?'':'none';
+  el('maxscenes').style.display=m==='chapter'?'':'none';
+  el('scenelabel').textContent=m==='logline'?'Scenes':'Max scenes';
+  el('go').textContent=m==='logline'?'Direct my film →':'Adapt this chapter →';
+}
+el('modes').onclick=e=>{ const b=e.target.closest('button'); if(b&&b.dataset.mode) setMode(b.dataset.mode); };
+el('go').onclick=run;
+el('logline').addEventListener('keydown',e=>{ if((e.metaKey||e.ctrlKey)&&e.key==='Enter') run(); });
+el('chapter').addEventListener('keydown',e=>{ if((e.metaKey||e.ctrlKey)&&e.key==='Enter') run(); });
+fetch('/api').then(x=>x.json()).then(()=>el('health').textContent='live').catch(()=>{el('health').textContent='offline';el('health').previousElementSibling.style.background='#e87878';});
+buildPipe(); loadGallery();
+</script>
+</body></html>

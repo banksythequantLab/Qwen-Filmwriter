@@ -3,6 +3,7 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { plan } from "./planner.mjs";
+import { adapt } from "./planner.mjs";
 import { shotlist } from "./shotlist.mjs";
 import { promptgen } from "./promptgen.mjs";
 import { renderShot } from "./render.mjs";
@@ -12,12 +13,15 @@ import { editorPlan, assembleEdit } from "./editor.mjs";
 import { buildSegment, concat, finalize } from "./stitch.mjs";
 import { video, download } from "../lib/qwen.mjs";
 
-export async function showrun(logline, { scenes = 3, outDir = "output/film", render = true, forceStrategy, log = console.log } = {}) {
+export async function showrun(input, { scenes = 3, source = "logline", maxScenes = 24, outDir = "output/film", render = true, forceStrategy, log = console.log } = {}) {
   const dir = path.resolve(outDir);
   mkdirSync(dir, { recursive: true });
-  log(`\n== SHOWRUN ==\n"${logline}"`);
+  const preview = source === "chapter" ? input.replace(/\s+/g, " ").slice(0, 90) + "…" : `"${input}"`;
+  log(`\n== SHOWRUN ==\n${preview}`);
 
-  const { plan: p } = await plan(logline, { scenes });
+  const { plan: p } = source === "chapter"
+    ? await adapt(input, { maxScenes })
+    : await plan(input, { scenes });
   log(`title: ${p.title}  |  ${p.scenes.length} scenes  |  style: ${p.style}`);
 
   // Expand: scene -> { strategy, shots(+prompts) }

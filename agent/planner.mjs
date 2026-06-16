@@ -32,3 +32,31 @@ export function parseJson(text) {
     return JSON.parse(m[0]);
   }
 }
+
+// adapt() — turn a passage of prose (e.g. a book chapter) into an ORDERED, faithful scene plan.
+// Scene count is decided from the material (up to maxScenes), not fixed. Same plan shape as plan().
+const ADAPT_SYS = `You are a film director adapting a passage of prose (such as a book chapter) into a SHORT FILM.
+Read the SOURCE TEXT faithfully and break it into an ORDERED sequence of SCENES that follow its narrative.
+Return STRICT JSON ONLY (no markdown, no prose):
+{
+  "title": string,
+  "logline": string,
+  "style": string,
+  "characters": [{"name": string, "description": string, "voice": "Cherry"|"Ryan"|"Serena"|"Aiden"|"Vivian"}],
+  "scenes": [{"id": number, "beat": string, "setting": string, "intent": string}]
+}
+Rules:
+- FAITHFUL adaptation: keep the source's characters, events, order, and mood. Do NOT invent major plot.
+- Decide the NUMBER of scenes from the material: one scene per distinct beat, location change, or dramatic turn. Use as many as the passage truly needs, but NO MORE THAN {MAX}.
+- Each scene is a STORY BEAT only (no shot/camera/image detail; that is produced downstream).
+- Describe recurring characters consistently (look, age, clothing) so downstream stages keep them visually stable.
+- Give each named character a voice from the allowed list and reuse it for that character.`;
+
+export async function adapt(source, { maxScenes = 24, model = "qwen-plus" } = {}) {
+  const sys = ADAPT_SYS.replace("{MAX}", String(maxScenes));
+  const { text, usage } = await chat(
+    [{ role: "system", content: sys }, { role: "user", content: `SOURCE TEXT:\n${source}` }],
+    { model, temperature: 0.6, max_tokens: 8000 }
+  );
+  return { plan: parseJson(text), usage };
+}

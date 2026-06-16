@@ -1,0 +1,6 @@
+tunnel: 5b7b0f3f-1b2c-4ec9-a341-c086550c0c89
+credentials-file: C:\Users\solti\.cloudflared\5b7b0f3f-1b2c-4ec9-a341-c086550c0c89.json
+ingress:
+  - hostname: filmwriter.tlz.us
+    service: http://localhost:8787
+  - service: http_status:404
