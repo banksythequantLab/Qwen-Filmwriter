@@ -30,3 +30,12 @@ export async function concat(segAbsPaths, outPath, listPath) {
   writeFileSync(listPath, segAbsPaths.map((p) => `file '${p.replace(/\\/g, "/")}'`).join("\n"));
   await ff(["-f", "concat", "-safe", "0", "-i", listPath, "-c", "copy", outPath]);
 }
+
+// buildSegmentRange — trim [ss,to] from a clip, normalize to uniform params, add silent audio.
+// Used by the long-take editor to slice the main take and cutaways.
+export async function buildSegmentRange(clipPath, segPath, { ss = 0, to } = {}) {
+  const seek = ["-ss", String(ss)];
+  if (to != null) seek.push("-to", String(to));
+  await ff([...seek, "-i", clipPath, "-f", "lavfi", "-i", "anullsrc=channel_layout=stereo:sample_rate=44100",
+    "-filter_complex", `[0:v]${SCALE}[v]`, "-map", "[v]", "-map", "1:a", ...ENC, segPath]);
+}
