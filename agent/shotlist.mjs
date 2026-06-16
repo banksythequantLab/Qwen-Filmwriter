@@ -1,17 +1,16 @@
-// agent/shotlist.mjs — director agent. One scene -> ordered SHOTS.
+// agent/shotlist.mjs — director agent. One scene -> a STRATEGY + ordered SHOTS.
 import { chat } from "../lib/qwen.mjs";
 import { parseJson } from "./planner.mjs";
 
-const SYS = `You are a film director breaking ONE scene into individual SHOTS for an AI video pipeline.
+const SYS = `You are a film director breaking ONE scene into a strategy and individual SHOTS for an AI video pipeline.
 Given the film style, characters, and the scene, return STRICT JSON ONLY:
-{"shots":[{"id":number,"type":"establishing"|"wide"|"medium"|"close"|"insert","subject":string,"action":string,"mode":"i2v"|"t2v","duration":number,"narration":string,"dialogue":[{"character":string,"line":string}]}]}
+{"strategy":"montage"|"longtake","shots":[{"id":number,"type":"establishing"|"wide"|"medium"|"close"|"insert","subject":string,"action":string,"mode":"i2v"|"t2v","duration":number,"narration":string,"dialogue":[{"character":string,"line":string}]}]}
 Rules:
-- 1-2 shots per scene (be economical).
-- duration 2-5 seconds.
-- mode: prefer "i2v" (animate a crafted still — best continuity); use "t2v" only for complex multi-action.
-- Vary shot TYPE for visual rhythm across the scene.
-- narration/dialogue optional and short; "" or [] if none.
-- Keep characters consistent with their given descriptions.`;
+- strategy: choose "longtake" if the scene is ONE continuous action or performance that plays well as a single held take intercut with reaction/detail cutaways; choose "montage" if it is a series of distinct beats.
+- For "longtake": make the FIRST shot the continuous spine (type wide/establishing) and the remaining shots cutaways (close/insert/medium). Use 2-3 shots.
+- For "montage": 1-2 shots, each a distinct beat.
+- duration 2-5s per shot. mode: prefer "i2v"; "t2v" only for complex multi-action.
+- Vary shot TYPE for rhythm. narration/dialogue optional and short. Keep characters consistent.`;
 
 export async function shotlist(scene, { style, characters, model = "qwen-plus" } = {}) {
   const ctx = `STYLE: ${style}\nCHARACTERS: ${JSON.stringify(characters)}\nSCENE: ${JSON.stringify(scene)}`;
@@ -19,5 +18,6 @@ export async function shotlist(scene, { style, characters, model = "qwen-plus" }
     [{ role: "system", content: SYS }, { role: "user", content: ctx }],
     { model, temperature: 0.7, max_tokens: 1000 }
   );
-  return { shots: parseJson(text).shots || [], usage };
+  const o = parseJson(text);
+  return { strategy: o.strategy === "longtake" ? "longtake" : "montage", shots: o.shots || [], usage };
 }
