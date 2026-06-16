@@ -1,9 +1,9 @@
 {
-  "name": "qwen-showrunner",
+  "name": "qwen-filmwriter",
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Autonomous AI short-drama agent on Qwen Cloud (Hackathon Track 2: AI Showrunner)",
+  "description": "Filmwriter - an autonomous AI auteur on Qwen Cloud (Hackathon Track 2: AI Showrunner)",
   "license": "MIT",
   "engines": { "node": ">=18" },
   "scripts": {

@@ -26,7 +26,7 @@ const server = createServer(async (req, res) => {
   const p = pathname.split("/").filter(Boolean);
 
   if (req.method === "GET" && p.length === 0)
-    return json(res, 200, { service: "qwen-showrunner", endpoints: ["POST /showrun {logline,scenes}", "GET /jobs/:id", "GET /jobs/:id/film"], active: jobs.size });
+    return json(res, 200, { service: "filmwriter", endpoints: ["POST /showrun {logline,scenes}", "GET /jobs/:id", "GET /jobs/:id/film"], active: jobs.size });
 
   if (req.method === "POST" && p[0] === "showrun") {
     const { logline, scenes = 3 } = await body(req);
@@ -49,4 +49,4 @@ const server = createServer(async (req, res) => {
   json(res, 404, { error: "not found" });
 });
 
-server.listen(PORT, () => console.log(`Showrunner API on http://0.0.0.0:${PORT}`));
+server.listen(PORT, () => console.log(`Filmwriter API on http://0.0.0.0:${PORT}`));

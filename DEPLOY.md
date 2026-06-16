@@ -32,24 +32,24 @@ ssh root@<PUBLIC_IP>
 curl -fsSL https://get.docker.com | sh
 
 # get the code
-git clone https://github.com/<you>/qwen-showrunner.git
-cd qwen-showrunner
+git clone https://github.com/<you>/qwen-filmwriter.git
+cd qwen-filmwriter
 
 # build + run (key passed at runtime, never baked in)
-docker build -t showrunner .
-docker run -d --name showrunner -p 8787:8787 \
+docker build -t filmwriter .
+docker run -d --name filmwriter -p 8787:8787 \
   -e QWEN_API_KEY="sk-..." \
-  --restart unless-stopped showrunner
+  --restart unless-stopped filmwriter
 
-docker logs -f showrunner   # expect: "Showrunner API on http://0.0.0.0:8787"
+docker logs -f filmwriter   # expect: "Filmwriter API on http://0.0.0.0:8787"
 ```
 
 ### Path B — bare Node
 ```
 curl -fsSL https://deb.nodesource.com/setup_22.x | bash -
 apt-get install -y nodejs ffmpeg git
-git clone https://github.com/<you>/qwen-showrunner.git
-cd qwen-showrunner
+git clone https://github.com/<you>/qwen-filmwriter.git
+cd qwen-filmwriter
 echo 'QWEN_API_KEY=sk-...' > .env
 echo 'QWEN_BASE_URL=https://dashscope-intl.aliyuncs.com/compatible-mode/v1' >> .env
 # keep it running after logout:

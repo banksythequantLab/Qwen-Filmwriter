@@ -1,6 +1,8 @@
-# Qwen Showrunner — Autonomous AI Short-Drama Agent
+# Filmwriter — Autonomous AI Auteur
 
-**Global AI Hackathon with Qwen Cloud · Track 2 (AI Showrunner)**
+> One logline in; a finished, edited short out.
+
+**Global AI Hackathon with Qwen Cloud · Track 2 (AI Showrunner)** · repo: `Qwen-Filmwriter`
 
 A logline goes in; a finished, edited short film comes out — planned, generated,
 quality-checked, voiced, and stitched with **no human in the loop**. Built entirely on

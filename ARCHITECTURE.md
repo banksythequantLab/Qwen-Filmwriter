@@ -1,4 +1,4 @@
-# Architecture — Qwen Showrunner
+# Architecture — Filmwriter
 
 An autonomous AI short-film agent. A logline goes in; a finished, edited MP4 comes
 out — planned, generated, quality-checked, voiced, and stitched with no human in the
