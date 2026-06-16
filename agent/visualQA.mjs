@@ -20,17 +20,27 @@ export async function reviewStill(imageUrl, imagePrompt, { model = "qwen3-vl-plu
 
 // Generate -> QA -> regenerate (with the QA's fix_hint fed back) until pass or maxRetries exhausted.
 export async function approvedStill(imagePrompt, { maxRetries = 3, size, onStep } = {}) {
-  let prompt = imagePrompt, history = [], best = null, bestScore = -Infinity;
+  const baseNeg = "text, words, letters, captions, subtitles, signage, watermark, logo, garbled text, distorted typography";
+  let history = [], best = null, bestScore = -Infinity, last = null;
   for (let attempt = 1; attempt <= maxRetries + 1; attempt++) {
-    const im = await image(prompt, size ? { size } : {});
-    const verdict = await reviewStill(im.url, imagePrompt); // judge against the ORIGINAL spec
+    let prompt = imagePrompt, neg = baseNeg;
+    if (last && !last.pass) {                                  // progressive, defect-targeted escalation
+      const fix = [last.fix_hint, ...(last.issues || [])].filter(Boolean).join("; ") || "improve fidelity";
+      const hard = attempt >= 3;
+      prompt = `${imagePrompt}\n\nCorrections: ${fix}.` + (hard
+        ? " CRITICAL: plain, solid, heavily out-of-focus background; ABSOLUTELY NO signs, text, letters, or symbols anywhere in frame."
+        : " Keep all background signage fully blurred and unreadable.");
+      if (last.spelling_ok === false) neg += ", neon signs, billboards, advertisements, shop signs, kanji, glyphs, symbols";
+      if (last.anatomy_ok === false) neg += ", deformed hands, extra fingers, distorted face, malformed limbs";
+    }
+    const im = await image(prompt, { negative_prompt: neg, ...(size ? { size } : {}) });
+    const verdict = await reviewStill(im.url, imagePrompt);   // judge against the ORIGINAL spec
     history.push({ attempt, url: im.url, verdict });
     if (onStep) onStep(attempt, verdict, im.url);
     const score = (verdict.prompt_match ? 2 : 0) + (verdict.anatomy_ok ? 1 : 0) + (verdict.spelling_ok ? 1 : 0) - (verdict.issues?.length || 0) * 0.1;
     if (score > bestScore) { bestScore = score; best = { url: im.url, verdict, attempt }; }
     if (verdict.pass) return { ...best, history, approved: true };
-    const fix = verdict.fix_hint || (verdict.issues || []).join("; ");
-    prompt = `${imagePrompt}\n\nCorrections required: ${fix}`; // closed-loop feedback
+    last = verdict;
   }
-  return { ...best, history, approved: false }; // best-scoring effort after retries
+  return { ...best, history, approved: false };                // best-scoring effort after retries
 }

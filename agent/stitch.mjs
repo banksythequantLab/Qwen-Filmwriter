@@ -39,3 +39,12 @@ export async function buildSegmentRange(clipPath, segPath, { ss = 0, to } = {}) 
   await ff([...seek, "-i", clipPath, "-f", "lavfi", "-i", "anullsrc=channel_layout=stereo:sample_rate=44100",
     "-filter_complex", `[0:v]${SCALE}[v]`, "-map", "[v]", "-map", "1:a", ...ENC, segPath]);
 }
+
+// finalize — cinematic fade-in / fade-out on the assembled film.
+export async function finalize(inPath, outPath, { fadeIn = 0.6, fadeOut = 0.8 } = {}) {
+  const { stdout } = await exec("ffprobe", ["-v", "error", "-show_entries", "format=duration", "-of", "default=noprint_wrappers=1:nokey=1", inPath]);
+  const dur = parseFloat(stdout) || 0;
+  const outStart = Math.max(0, dur - fadeOut).toFixed(2);
+  const vf = `fade=t=in:st=0:d=${fadeIn},fade=t=out:st=${outStart}:d=${fadeOut}`;
+  await ff(["-i", inPath, "-vf", vf, "-c:v", "libx264", "-pix_fmt", "yuv420p", "-preset", "veryfast", "-c:a", "copy", outPath]);
+}

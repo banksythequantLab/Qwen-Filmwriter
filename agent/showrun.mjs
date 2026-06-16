@@ -8,7 +8,7 @@ import { promptgen } from "./promptgen.mjs";
 import { renderShot } from "./render.mjs";
 import { voiceForShot } from "./voice.mjs";
 import { editorPlan, assembleEdit } from "./editor.mjs";
-import { buildSegment, concat } from "./stitch.mjs";
+import { buildSegment, concat, finalize } from "./stitch.mjs";
 import { video, download } from "../lib/qwen.mjs";
 
 export async function showrun(logline, { scenes = 3, outDir = "output/film", render = true, forceStrategy, log = console.log } = {}) {
@@ -44,8 +44,10 @@ export async function showrun(logline, { scenes = 3, outDir = "output/film", ren
     if (clip) sceneClips.push(clip);
   }
 
+  const finalRaw = path.join(dir, "final_raw.mp4");
+  await concat(sceneClips, finalRaw, path.join(dir, "final_concat.txt"));
   const finalPath = path.join(dir, "final.mp4");
-  await concat(sceneClips, finalPath, path.join(dir, "final_concat.txt"));
+  await finalize(finalRaw, finalPath);   // cinematic fade in/out
   log(`\nFINAL CUT: ${finalPath}`);
   return { title: p.title, finalPath, scenes: scenesPlan.length };
 }
