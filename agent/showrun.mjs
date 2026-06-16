@@ -6,6 +6,7 @@ import { plan } from "./planner.mjs";
 import { shotlist } from "./shotlist.mjs";
 import { promptgen } from "./promptgen.mjs";
 import { renderShot } from "./render.mjs";
+import { approvedStill } from "./visualQA.mjs";
 import { voiceForShot } from "./voice.mjs";
 import { editorPlan, assembleEdit } from "./editor.mjs";
 import { buildSegment, concat, finalize } from "./stitch.mjs";
@@ -35,12 +36,24 @@ export async function showrun(logline, { scenes = 3, outDir = "output/film", ren
   writeFileSync(path.join(dir, "storyboard.json"), JSON.stringify({ plan: p, scenes: scenesPlan }, null, 2));
   if (!render) return { title: p.title, scenes: scenesPlan.length, storyboard: path.join(dir, "storyboard.json") };
 
+  // Character reference (subject consistency): one approved portrait, reused across every shot.
+  let referenceUrl = null;
+  const lead = p.characters?.[0];
+  if (lead) {
+    log(`reference: ${lead.name} ...`);
+    const ref = await approvedStill(
+      `Character reference portrait of ${lead.name}: ${lead.description}. ${p.style}. Front view, head and shoulders, clean neutral background, soft cinematic lighting.`,
+      { size: "1328*1328", maxRetries: 1, onStep: (a, v) => log(`   ref still ${a}: pass=${v.pass}`) });
+    referenceUrl = ref.url;
+    if (referenceUrl) await download(referenceUrl, path.join(dir, "character_ref.png"));
+  }
+
   // Render each scene -> one uniform scene clip
   const sceneClips = [];
   for (const sp of scenesPlan) {
     const clip = (sp.strategy === "longtake" && sp.shots.length >= 2)
-      ? await renderSceneLongtake(sp, p, dir, log)
-      : await renderSceneMontage(sp, p, dir, log);
+      ? await renderSceneLongtake(sp, p, dir, log, referenceUrl)
+      : await renderSceneMontage(sp, p, dir, log, referenceUrl);
     if (clip) sceneClips.push(clip);
   }
 
@@ -53,13 +66,13 @@ export async function showrun(logline, { scenes = 3, outDir = "output/film", ren
 }
 
 // Montage: each shot -> clip -> segment, concat into one scene clip.
-async function renderSceneMontage(sp, p, dir, log) {
+async function renderSceneMontage(sp, p, dir, log, referenceUrl) {
   const segs = [];
   let i = 0;
   for (const { shot, prompts } of sp.shots) {
     const tag = `${sp.scene.id}_${shot.id}`;
     log(`-- shot ${tag} [montage ${shot.mode} ${shot.duration}s]`);
-    const r = await renderShot(shot, prompts, { style: p.style,
+    const r = await renderShot(shot, prompts, { style: p.style, referenceUrl,
       onStill: (a, v) => log(`   still ${a}: pass=${v.pass}`), onClip: (st, s) => log(`   ${shot.mode} [${s}s] ${st}`) });
     const clipPath = path.join(dir, `clip_${tag}.mp4`);
     await download(r.clipUrl, clipPath);
@@ -74,7 +87,7 @@ async function renderSceneMontage(sp, p, dir, log) {
 }
 
 // Long-take: spine = continuous take (t2v), rest = cutaways (i2v), editor EDL -> assemble.
-async function renderSceneLongtake(sp, p, dir, log) {
+async function renderSceneLongtake(sp, p, dir, log, referenceUrl) {
   const spine = sp.shots[0];
   const cutaways = sp.shots.slice(1);
   const takeDur = Math.min(10, Math.max(5, sp.shots.reduce((a, s) => a + (s.shot.duration || 3), 0)));
@@ -88,7 +101,7 @@ async function renderSceneLongtake(sp, p, dir, log) {
   const cutawayPaths = {}, meta = [];
   for (const { shot, prompts } of cutaways) {
     const cid = `s${sp.scene.id}_${shot.id}`;
-    const r = await renderShot({ ...shot, mode: "i2v" }, prompts, { style: p.style,
+    const r = await renderShot({ ...shot, mode: "i2v" }, prompts, { style: p.style, referenceUrl,
       onStill: (a, v) => log(`   cut ${cid} still ${a}: pass=${v.pass}`), onClip: (st, s) => log(`   cut ${cid} [${s}s] ${st}`) });
     const cpath = path.join(dir, `cutaway_${cid}.mp4`);
     await download(r.clipUrl, cpath);

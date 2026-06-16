@@ -1,6 +1,6 @@
 // agent/visualQA.mjs — visual QA agent. Inspects a still vs its prompt; regenerates with
 // feedback until it passes (prompt-match + spelling + anatomy) or hits the retry cap.
-import { image, see } from "../lib/qwen.mjs";
+import { image, imageEdit, see } from "../lib/qwen.mjs";
 import { parseJson } from "./planner.mjs";
 
 const QA_SYS = `You are a practical visual QA reviewer for an AI film pipeline. You see ONE generated still and the prompt it should satisfy.
@@ -19,7 +19,7 @@ export async function reviewStill(imageUrl, imagePrompt, { model = "qwen3-vl-plu
 }
 
 // Generate -> QA -> regenerate (with the QA's fix_hint fed back) until pass or maxRetries exhausted.
-export async function approvedStill(imagePrompt, { maxRetries = 3, size, onStep } = {}) {
+export async function approvedStill(imagePrompt, { maxRetries = 3, size, onStep, referenceUrl } = {}) {
   const baseNeg = "text, words, letters, captions, subtitles, signage, watermark, logo, garbled text, distorted typography";
   let history = [], best = null, bestScore = -Infinity, last = null;
   for (let attempt = 1; attempt <= maxRetries + 1; attempt++) {
@@ -33,7 +33,9 @@ export async function approvedStill(imagePrompt, { maxRetries = 3, size, onStep 
       if (last.spelling_ok === false) neg += ", neon signs, billboards, advertisements, shop signs, kanji, glyphs, symbols";
       if (last.anatomy_ok === false) neg += ", deformed hands, extra fingers, distorted face, malformed limbs";
     }
-    const im = await image(prompt, { negative_prompt: neg, ...(size ? { size } : {}) });
+    const im = referenceUrl
+      ? await imageEdit(referenceUrl, `Keep the character's exact identity (face, colors, design) from the reference image; render this shot, changing only the scene, pose, lighting, and framing: ${prompt}`, { negative_prompt: neg, ...(size ? { size } : {}) })
+      : await image(prompt, { negative_prompt: neg, ...(size ? { size } : {}) });
     const verdict = await reviewStill(im.url, imagePrompt);   // judge against the ORIGINAL spec
     history.push({ attempt, url: im.url, verdict });
     if (onStep) onStep(attempt, verdict, im.url);

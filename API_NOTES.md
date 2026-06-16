@@ -36,3 +36,14 @@ _All facts below tested live against this account on 2026-06-16. Don't re-fetch;
 
 ## Verified live
 chat OK | image OK (6s) | video t2v OK (39s) | tts OK | vision built (untested)
+
+## Image edit / subject consistency — qwen-image-edit-max (VERIFIED LIVE)
+- Endpoint: POST {NATIVE}/services/aigc/multimodal-generation/generation  (SYNCHRONOUS — no X-DashScope-Async header; same endpoint as TTS).
+- Body: { "model":"qwen-image-edit-max",
+          "input":{ "messages":[{ "role":"user", "content":[ {"image": URL_or_dataURI}, ... , {"text": INSTRUCTION} ] }] },
+          "parameters":{ "n":1, "negative_prompt":" ", "prompt_extend":true, "watermark":false, "size":"1664*928" } }
+- Inputs: 1-3 images. Outputs: 1-6 (n). Result path: output.choices[0].message.content[] -> first {image}. URLs expire 24h (download now).
+- size "W*H", each dim 512-2048; default ~1024, aspect near the (last) input image.
+- SUBJECT CONSISTENCY: one character reference image in -> same identity (face/colors/design) rendered into new scenes/poses/backgrounds. Verified: Qwen-VL judged an edited shot "SAME" character vs the reference.
+- Billing: only successfully generated images are charged; failed calls are free.
+- Pipeline use: lib/qwen.mjs `imageEdit(images, instruction, opts)`. showrun generates ONE `character_ref` (approvedStill, maxRetries 1) then every shot still is `approvedStill(prompt, { referenceUrl })`, which calls imageEdit to keep the lead consistent across shots. Longtake spine is t2v so NOT reference-anchored yet (future: Wan reference-to-video).
