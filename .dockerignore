@@ -1,0 +1,10 @@
+.git
+.env
+output
+node_modules
+test_*.mjs
+probe.mjs
+t2v_test.mjs
+models_dump.mjs
+models.txt
+*.md

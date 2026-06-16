@@ -1,0 +1,14 @@
+{
+  "name": "qwen-showrunner",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Autonomous AI short-drama agent on Qwen Cloud (Hackathon Track 2: AI Showrunner)",
+  "license": "MIT",
+  "engines": { "node": ">=18" },
+  "scripts": {
+    "start": "node server.mjs",
+    "film": "node test_showrun.mjs",
+    "plan": "node test_storyboard.mjs"
+  }
+}
