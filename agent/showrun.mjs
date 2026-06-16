@@ -86,15 +86,18 @@ async function renderSceneMontage(sp, p, dir, log, referenceUrl) {
   return sceneClip;
 }
 
-// Long-take: spine = continuous take (t2v), rest = cutaways (i2v), editor EDL -> assemble.
+// Long-take: spine = reference-anchored still -> multi-shot i2v take; rest = cutaways (i2v); editor EDL -> assemble.
 async function renderSceneLongtake(sp, p, dir, log, referenceUrl) {
   const spine = sp.shots[0];
   const cutaways = sp.shots.slice(1);
   const takeDur = Math.min(10, Math.max(5, sp.shots.reduce((a, s) => a + (s.shot.duration || 3), 0)));
   log(`-- scene ${sp.scene.id} [longtake] spine + ${cutaways.length} cutaway(s), take ~${takeDur}s`);
 
-  const take = await video(`${spine.prompts.image_prompt}. ${spine.prompts.motion_prompt || ""}. Overall style: ${p.style}`.trim(),
-    { size: "1280*720", shot_type: "multi", duration: takeDur, onTick: (st, s) => log(`   take [${s}s] ${st}`) });
+  // spine: reference-anchored still -> multi-shot i2v take (preserves the lead's identity across the take)
+  const spineStill = await approvedStill(`${spine.prompts.image_prompt}. Overall style: ${p.style}`,
+    { referenceUrl, onStep: (a, v) => log(`   spine still ${a}: pass=${v.pass}`) });
+  const take = await video(spine.prompts.motion_prompt || "slow cinematic camera move, continuous flowing take",
+    { imageUrl: spineStill.url, resolution: "720P", shot_type: "multi", duration: takeDur, onTick: (st, s) => log(`   take [${s}s] ${st}`) });
   const takePath = path.join(dir, `take_${sp.scene.id}.mp4`);
   await download(take.url, takePath);
 
