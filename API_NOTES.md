@@ -47,3 +47,11 @@ chat OK | image OK (6s) | video t2v OK (39s) | tts OK | vision built (untested)
 - SUBJECT CONSISTENCY: one character reference image in -> same identity (face/colors/design) rendered into new scenes/poses/backgrounds. Verified: Qwen-VL judged an edited shot "SAME" character vs the reference.
 - Billing: only successfully generated images are charged; failed calls are free.
 - Pipeline use: lib/qwen.mjs `imageEdit(images, instruction, opts)`. showrun generates ONE `character_ref` (approvedStill, maxRetries 1) then every shot still is `approvedStill(prompt, { referenceUrl })`, which calls imageEdit to keep the lead consistent across shots. Longtake spine is t2v so NOT reference-anchored yet (future: Wan reference-to-video).
+
+## FREE-TIER FALLBACK MODELS (2026-06-16) — used until hackathon coupon lands
+- wan2.6-i2v-flash / wan2.6-t2v: FREE TIER EXHAUSTED (403 AllocationQuota.FreeTierOnly).
+- wan2.2-i2v-flash: FREE TIER OPEN, live render verified. Does NOT support custom duration or shot_type (uses native length). Accepts resolution:"720P".
+- wan2.5-t2v-preview: FREE TIER OPEN, live render verified. Supports size+duration.
+- wan2.2-t2v-plus: submits but render FAILED on params; wanx2.1-t2v-turbo: InvalidParameter (bad id).
+- Switch is config-only via .env: QWEN_I2V_MODEL / QWEN_T2V_MODEL. qwen.mjs gates duration/shot_type to /wan2\.(5|6)/.
+- To return to 2.6 quality once credits exist: disable "use free tier only" in Alibaba console, then remove the two .env lines (or set them to wan2.6-*).
