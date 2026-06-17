@@ -24,9 +24,10 @@ export async function renderScene(scene, { style = "", onStill, onClip } = {}) {
 }
 
 // renderShot — same hybrid logic at SHOT granularity, fed by promptgen's crafted prompts.
-export async function renderShot(shot, prompts, { style = "", referenceUrl, onStill, onClip } = {}) {
+export async function renderShot(shot, prompts, { style = "", referenceUrl, onStill, onClipStart, onClip } = {}) {
   const imgPrompt = style ? `${prompts.image_prompt}. Overall style: ${style}` : prompts.image_prompt;
   const still = await approvedStill(imgPrompt, { referenceUrl, onStep: onStill });
+  if (onClipStart) onClipStart(still.url);
   let clip;
   if (shot.mode === "i2v") {
     clip = await video(prompts.motion_prompt || "subtle natural motion, slow cinematic camera move", {

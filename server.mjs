@@ -37,9 +37,10 @@ function streamMp4(req, res, file) {
 function startJob(input, { source = "logline", scenes = 3, maxScenes = 24 } = {}) {
   const id = randomUUID().slice(0, 8);
   const preview = source === "chapter" ? input.replace(/\s+/g, " ").slice(0, 140) + "…" : input;
-  const job = { id, status: "running", log: [], input: preview, source, scenes, title: null, finalPath: null, error: null, created: Date.now() };
+  const job = { id, status: "running", log: [], input: preview, source, scenes, title: null, finalPath: null, error: null, panels: {}, created: Date.now() };
   jobs.set(id, job);
-  showrun(input, { source, scenes, maxScenes, outDir: path.join("output/jobs", id), log: (m) => job.log.push(String(m)) })
+  const onEvent = (e) => { if (e && e.id) job.panels[e.id] = { ...(job.panels[e.id] || {}), ...e }; };
+  showrun(input, { source, scenes, maxScenes, outDir: path.join("output/jobs", id), log: (m) => job.log.push(String(m)), onEvent })
     .then((r) => { job.status = "done"; job.finalPath = r.finalPath; job.title = r.title; })
     .catch((e) => { job.status = "error"; job.error = e.message; });
   return job;
@@ -85,7 +86,7 @@ const server = createServer(async (req, res) => {
       if (job.status !== "done" || !job.finalPath || !existsSync(job.finalPath)) return json(res, 409, { status: job.status });
       return streamMp4(req, res, job.finalPath);
     }
-    return json(res, 200, { id: job.id, status: job.status, title: job.title, input: job.input, source: job.source, scenes: job.scenes, error: job.error, log: job.log.slice(-80), film: job.status === "done" ? `/jobs/${job.id}/film` : null });
+    return json(res, 200, { id: job.id, status: job.status, title: job.title, input: job.input, source: job.source, scenes: job.scenes, error: job.error, log: job.log.slice(-80), panels: Object.values(job.panels), film: job.status === "done" ? `/jobs/${job.id}/film` : null });
   }
   json(res, 404, { error: "not found" });
 });
