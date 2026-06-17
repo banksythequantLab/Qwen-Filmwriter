@@ -55,3 +55,9 @@ chat OK | image OK (6s) | video t2v OK (39s) | tts OK | vision built (untested)
 - wan2.2-t2v-plus: submits but render FAILED on params; wanx2.1-t2v-turbo: InvalidParameter (bad id).
 - Switch is config-only via .env: QWEN_I2V_MODEL / QWEN_T2V_MODEL. qwen.mjs gates duration/shot_type to /wan2\.(5|6)/.
 - To return to 2.6 quality once credits exist: disable "use free tier only" in Alibaba console, then remove the two .env lines (or set them to wan2.6-*).
+
+## CONCURRENCY / RATE LIMITS (2026-06-16)
+- qwen-image-edit-max (subject-consistency stills) has a STRICT rate quota: even 2-3 parallel edits (x QA retries) trip 429 Throttling.RateQuota and exhaust backoff. -> keep STILL generation SEQUENTIAL.
+- Video (video-synthesis) uses a separate quota and is the slow step (30-90s) -> parallelize at cap 2. This is the real wall-clock win.
+- qwen.mjs now routes all API calls through rfetch() with 429/5xx exponential backoff (5 tries).
+- showrun phases: 1) stills sequential, 2) videos parallel, 3) local ffmpeg assembly. Caps env-tunable: QWEN_STILL_CC (default 1), QWEN_VIDEO_CC (default 2). Bump STILL_CC only on a higher paid rate tier.

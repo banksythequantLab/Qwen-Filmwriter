@@ -6,7 +6,6 @@ import { plan } from "./planner.mjs";
 import { adapt } from "./planner.mjs";
 import { shotlist } from "./shotlist.mjs";
 import { promptgen } from "./promptgen.mjs";
-import { renderShot } from "./render.mjs";
 import { approvedStill } from "./visualQA.mjs";
 import { voiceForShot } from "./voice.mjs";
 import { editorPlan, assembleEdit } from "./editor.mjs";
@@ -66,13 +65,85 @@ export async function showrun(input, { scenes = 3, source = "logline", maxScenes
     if (referenceUrl) await download(referenceUrl, path.join(dir, "character_ref.png"));
   }
 
-  // Render each scene -> one uniform scene clip
+  // ---- PHASE 1: STORYBOARD — generate every still in parallel (capped), board-first ----
+  // imageEdit (subject-consistency) has a strict rate quota -> stills sequential by default;
+  // video is the slow part and uses a separate quota -> parallelize that. Both env-tunable.
+  const STILL_CC = +(process.env.QWEN_STILL_CC || 1), VIDEO_CC = +(process.env.QWEN_VIDEO_CC || 2);
+  const units = [];
+  for (const sp of scenesPlan) {
+    const isLong = sp.strategy === "longtake" && sp.shots.length >= 2;
+    const takeDur = Math.min(10, Math.max(5, sp.shots.reduce((a, s) => a + (s.shot.duration || 3), 0)));
+    sp.shots.forEach(({ shot, prompts }, idx) => {
+      const role = isLong ? (idx === 0 ? "spine" : "cutaway") : "montage";
+      const id = role === "spine" ? `${sp.scene.id}_spine`
+               : role === "cutaway" ? `s${sp.scene.id}_${shot.id}`
+               : `${sp.scene.id}_${shot.id}`;
+      units.push({ id, sceneId: sp.scene.id, role, shot, prompts, takeDur });
+    });
+  }
+  log(`storyboard: ${units.length} panels (stills x${STILL_CC} parallel)`);
+  await mapLimit(units, STILL_CC, async (u) => {
+    const imgPrompt = `${u.prompts.image_prompt}. Overall style: ${p.style}`;
+    const still = await approvedStill(imgPrompt, { referenceUrl,
+      onStep: (a, v, url) => { log(`   ${u.id} still ${a}: pass=${v.pass}`); emit(u.id, { status: v.pass ? "frame" : "drawing", stillUrl: url, attempt: a, pass: v.pass }); } });
+    u.stillUrl = still.url;
+    emit(u.id, { status: "frame", stillUrl: still.url });
+  });
+
+  // ---- PHASE 2: ANIMATE — dispatch videos with bounded concurrency (free-tier safe) ----
+  log(`animate: ${units.length} clips (video x${VIDEO_CC} parallel)`);
+  await mapLimit(units, VIDEO_CC, async (u) => {
+    emit(u.id, { status: "video_pending" });
+    const onTick = (st, s) => { log(`   ${u.id} [${s}s] ${st}`); emit(u.id, { status: st === "SUCCEEDED" ? "clip" : "animating", secs: s }); };
+    let clip;
+    if (u.role === "spine") {
+      clip = await video(u.prompts.motion_prompt || "slow cinematic camera move, continuous flowing take",
+        { imageUrl: u.stillUrl, resolution: "720P", shot_type: "multi", duration: u.takeDur, onTick });
+    } else if (u.role === "cutaway" || u.shot.mode === "i2v") {
+      clip = await video(u.prompts.motion_prompt || "subtle natural motion, slow cinematic camera move",
+        { imageUrl: u.stillUrl, resolution: "720P", duration: u.shot.duration, onTick });
+    } else {
+      clip = await video(`${u.prompts.image_prompt}. Overall style: ${p.style}. ${u.prompts.motion_prompt || ""}`.trim(),
+        { size: "1280*720", shot_type: "multi", onTick });
+    }
+    emit(u.id, { status: "clip" });
+    u.clipPath = path.join(dir, `clip_${u.id}.mp4`);
+    await download(clip.url, u.clipPath);
+  });
+
+  // ---- PHASE 3: ASSEMBLE — sequential local ffmpeg (EDL + narration + concat) ----
   const sceneClips = [];
   for (const sp of scenesPlan) {
-    const clip = (sp.strategy === "longtake" && sp.shots.length >= 2)
-      ? await renderSceneLongtake(sp, p, dir, log, referenceUrl, emit)
-      : await renderSceneMontage(sp, p, dir, log, referenceUrl, emit);
-    if (clip) sceneClips.push(clip);
+    const isLong = sp.strategy === "longtake" && sp.shots.length >= 2;
+    const us = units.filter((u) => u.sceneId === sp.scene.id);
+    let sceneFinal;
+    if (isLong) {
+      const spineU = us.find((u) => u.role === "spine");
+      const cuts = us.filter((u) => u.role === "cutaway");
+      let sceneClip = spineU.clipPath;
+      if (cuts.length) {
+        const meta = cuts.map((u) => ({ id: u.id, duration: u.shot.duration || 3, description: u.prompts.image_prompt.slice(0, 160) }));
+        const edl = await editorPlan({ duration: spineU.takeDur, description: spineU.prompts.image_prompt.slice(0, 160) }, meta);
+        log(`  scene ${sp.scene.id} EDL: ${edl.length} cuts`);
+        sceneClip = path.join(dir, `scene_${sp.scene.id}_edited.mp4`);
+        await assembleEdit(spineU.clipPath, Object.fromEntries(cuts.map((u) => [u.id, u.clipPath])), edl, sceneClip, dir);
+      }
+      const voPath = await voiceForShot(spineU.shot, path.join(dir, `vo_s${sp.scene.id}.wav`), { voice: pickVoice(p, spineU.shot) });
+      sceneFinal = path.join(dir, `scene_${sp.scene.id}.mp4`);
+      await buildSegment(sceneClip, voPath, sceneFinal);
+    } else {
+      const segs = [];
+      let i = 0;
+      for (const u of us) {
+        const voPath = await voiceForShot(u.shot, path.join(dir, `vo_${u.id}.wav`), { voice: pickVoice(p, u.shot) });
+        const seg = path.join(dir, `seg_${u.id}_${String(++i).padStart(2, "0")}.mp4`);
+        await buildSegment(u.clipPath, voPath, seg);
+        segs.push(seg);
+      }
+      sceneFinal = path.join(dir, `scene_${sp.scene.id}.mp4`);
+      await concat(segs, sceneFinal, path.join(dir, `scene_${sp.scene.id}_concat.txt`));
+    }
+    sceneClips.push(sceneFinal);
   }
 
   const finalRaw = path.join(dir, "final_raw.mp4");
@@ -83,75 +154,16 @@ export async function showrun(input, { scenes = 3, source = "logline", maxScenes
   return { title: p.title, finalPath, scenes: scenesPlan.length };
 }
 
-// Montage: each shot -> clip -> segment, concat into one scene clip.
-async function renderSceneMontage(sp, p, dir, log, referenceUrl, emit = () => {}) {
-  const segs = [];
+
+// Bounded-concurrency map: run fn over items with at most n in flight at once.
+async function mapLimit(items, n, fn) {
+  const ret = new Array(items.length);
   let i = 0;
-  for (const { shot, prompts } of sp.shots) {
-    const tag = `${sp.scene.id}_${shot.id}`;
-    log(`-- shot ${tag} [montage ${shot.mode} ${shot.duration}s]`);
-    const r = await renderShot(shot, prompts, { style: p.style, referenceUrl,
-      onStill: (a, v, url) => { log(`   still ${a}: pass=${v.pass}`); emit(tag, { status: v.pass ? "frame" : "drawing", stillUrl: url, attempt: a, pass: v.pass }); },
-      onClipStart: () => emit(tag, { status: "video_pending" }),
-      onClip: (st, s) => { log(`   ${shot.mode} [${s}s] ${st}`); emit(tag, { status: st === "SUCCEEDED" ? "clip" : "animating", secs: s }); } });
-    emit(tag, { status: "clip" });
-    const clipPath = path.join(dir, `clip_${tag}.mp4`);
-    await download(r.clipUrl, clipPath);
-    const voPath = await voiceForShot(shot, path.join(dir, `vo_${tag}.wav`), { voice: pickVoice(p, shot) });
-    const seg = path.join(dir, `seg_${tag}_${String(++i).padStart(2, "0")}.mp4`);
-    await buildSegment(clipPath, voPath, seg);
-    segs.push(seg);
-  }
-  const sceneClip = path.join(dir, `scene_${sp.scene.id}.mp4`);
-  await concat(segs, sceneClip, path.join(dir, `scene_${sp.scene.id}_concat.txt`));
-  return sceneClip;
-}
-
-// Long-take: spine = reference-anchored still -> multi-shot i2v take; rest = cutaways (i2v); editor EDL -> assemble.
-async function renderSceneLongtake(sp, p, dir, log, referenceUrl, emit = () => {}) {
-  const spine = sp.shots[0];
-  const cutaways = sp.shots.slice(1);
-  const takeDur = Math.min(10, Math.max(5, sp.shots.reduce((a, s) => a + (s.shot.duration || 3), 0)));
-  const spineId = `${sp.scene.id}_spine`;
-  log(`-- scene ${sp.scene.id} [longtake] spine + ${cutaways.length} cutaway(s), take ~${takeDur}s`);
-
-  // spine: reference-anchored still -> multi-shot i2v take (preserves the lead's identity across the take)
-  const spineStill = await approvedStill(`${spine.prompts.image_prompt}. Overall style: ${p.style}`,
-    { referenceUrl, onStep: (a, v, url) => { log(`   spine still ${a}: pass=${v.pass}`); emit(spineId, { status: v.pass ? "frame" : "drawing", stillUrl: url, attempt: a, pass: v.pass }); } });
-  emit(spineId, { status: "video_pending" });
-  const take = await video(spine.prompts.motion_prompt || "slow cinematic camera move, continuous flowing take",
-    { imageUrl: spineStill.url, resolution: "720P", shot_type: "multi", duration: takeDur, onTick: (st, s) => { log(`   take [${s}s] ${st}`); emit(spineId, { status: st === "SUCCEEDED" ? "clip" : "animating", secs: s }); } });
-  emit(spineId, { status: "clip" });
-  const takePath = path.join(dir, `take_${sp.scene.id}.mp4`);
-  await download(take.url, takePath);
-
-  const cutawayPaths = {}, meta = [];
-  for (const { shot, prompts } of cutaways) {
-    const cid = `s${sp.scene.id}_${shot.id}`;
-    const r = await renderShot({ ...shot, mode: "i2v" }, prompts, { style: p.style, referenceUrl,
-      onStill: (a, v, url) => { log(`   cut ${cid} still ${a}: pass=${v.pass}`); emit(cid, { status: v.pass ? "frame" : "drawing", stillUrl: url, attempt: a, pass: v.pass }); },
-      onClipStart: () => emit(cid, { status: "video_pending" }),
-      onClip: (st, s) => { log(`   cut ${cid} [${s}s] ${st}`); emit(cid, { status: st === "SUCCEEDED" ? "clip" : "animating", secs: s }); } });
-    emit(cid, { status: "clip" });
-    const cpath = path.join(dir, `cutaway_${cid}.mp4`);
-    await download(r.clipUrl, cpath);
-    cutawayPaths[cid] = cpath;
-    meta.push({ id: cid, duration: shot.duration || 3, description: prompts.image_prompt.slice(0, 160) });
-  }
-
-  let sceneClip = takePath;
-  if (meta.length) {
-    const edl = await editorPlan({ duration: takeDur, description: spine.prompts.image_prompt.slice(0, 160) }, meta);
-    log(`   EDL: ${edl.length} cuts`);
-    sceneClip = path.join(dir, `scene_${sp.scene.id}_edited.mp4`);
-    await assembleEdit(takePath, cutawayPaths, edl, sceneClip, dir);
-  }
-
-  // Normalize + narration bed (spine's narration) over the cut-up scene.
-  const voPath = await voiceForShot(spine.shot, path.join(dir, `vo_s${sp.scene.id}.wav`), { voice: pickVoice(p, spine.shot) });
-  const sceneFinal = path.join(dir, `scene_${sp.scene.id}.mp4`);
-  await buildSegment(sceneClip, voPath, sceneFinal);
-  return sceneFinal;
+  const workers = Array.from({ length: Math.min(n, items.length) || 1 }, async () => {
+    while (i < items.length) { const idx = i++; ret[idx] = await fn(items[idx], idx); }
+  });
+  await Promise.all(workers);
+  return ret;
 }
 
 function pickVoice(p, shot) {
