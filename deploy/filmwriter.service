@@ -1,0 +1,14 @@
+[Unit]
+Description=Filmwriter orchestrator (Node)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+WorkingDirectory=/opt/filmwriter
+ExecStart=/usr/bin/node --env-file=.env server.mjs
+Restart=always
+RestartSec=3
+Environment=PORT=8787
+
+[Install]
+WantedBy=multi-user.target
