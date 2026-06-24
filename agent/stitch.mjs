@@ -16,10 +16,27 @@ async function ff(args) {
 const SCALE = "scale=1280:720:force_original_aspect_ratio=decrease,pad=1280:720:(ow-iw)/2:(oh-ih)/2,setsar=1,fps=30";
 const ENC = ["-c:v", "libx264", "-pix_fmt", "yuv420p", "-preset", "veryfast", "-c:a", "aac", "-ar", "44100", "-ac", "2", "-shortest"];
 
-// Build one normalized segment (uniform 1280x720/30fps/h264 + aac audio, real or silent).
+// Probe whether a media file carries an audio stream.
+export async function hasAudio(p) {
+  try {
+    const { stdout } = await exec("ffprobe", ["-v", "error", "-select_streams", "a", "-show_entries", "stream=index", "-of", "csv=p=0", p]);
+    return stdout.trim().length > 0;
+  } catch { return false; }
+}
+
+// Build one normalized segment. DEFAULT: preserve the clip's native audio (wan2.6 SFX/ambient).
+// voPath is an OPTIONAL voiceover layer — when present it is MIXED over the native bed (native ducked),
+// not replaced. Silence is used only when the clip has no audio and there's no voiceover.
 export async function buildSegment(clipPath, voPath, segPath) {
-  if (voPath) {
+  const native = await hasAudio(clipPath);
+  if (voPath && native) {
+    await ff(["-i", clipPath, "-i", voPath,
+      "-filter_complex", `[0:v]${SCALE}[v];[0:a]volume=0.35[bg];[1:a]apad[vo];[bg][vo]amix=inputs=2:duration=longest:normalize=0[a]`,
+      "-map", "[v]", "-map", "[a]", ...ENC, segPath]);
+  } else if (voPath) {
     await ff(["-i", clipPath, "-i", voPath, "-filter_complex", `[0:v]${SCALE}[v];[1:a]apad[a]`, "-map", "[v]", "-map", "[a]", ...ENC, segPath]);
+  } else if (native) {
+    await ff(["-i", clipPath, "-filter_complex", `[0:v]${SCALE}[v]`, "-map", "[v]", "-map", "0:a", ...ENC, segPath]);
   } else {
     await ff(["-i", clipPath, "-f", "lavfi", "-i", "anullsrc=channel_layout=stereo:sample_rate=44100", "-filter_complex", `[0:v]${SCALE}[v]`, "-map", "[v]", "-map", "1:a", ...ENC, segPath]);
   }
@@ -36,8 +53,12 @@ export async function concat(segAbsPaths, outPath, listPath) {
 export async function buildSegmentRange(clipPath, segPath, { ss = 0, to } = {}) {
   const seek = ["-ss", String(ss)];
   if (to != null) seek.push("-to", String(to));
-  await ff([...seek, "-i", clipPath, "-f", "lavfi", "-i", "anullsrc=channel_layout=stereo:sample_rate=44100",
-    "-filter_complex", `[0:v]${SCALE}[v]`, "-map", "[v]", "-map", "1:a", ...ENC, segPath]);
+  if (await hasAudio(clipPath)) {
+    await ff([...seek, "-i", clipPath, "-filter_complex", `[0:v]${SCALE}[v]`, "-map", "[v]", "-map", "0:a", ...ENC, segPath]);
+  } else {
+    await ff([...seek, "-i", clipPath, "-f", "lavfi", "-i", "anullsrc=channel_layout=stereo:sample_rate=44100",
+      "-filter_complex", `[0:v]${SCALE}[v]`, "-map", "[v]", "-map", "1:a", ...ENC, segPath]);
+  }
 }
 
 // finalize — cinematic fade-in / fade-out on the assembled film.

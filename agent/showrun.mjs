@@ -12,7 +12,7 @@ import { editorPlan, assembleEdit } from "./editor.mjs";
 import { buildSegment, concat, finalize } from "./stitch.mjs";
 import { video, download } from "../lib/qwen.mjs";
 
-export async function showrun(input, { scenes = 3, source = "logline", maxScenes = 24, outDir = "output/film", render = true, forceStrategy, log = console.log, onEvent = () => {} } = {}) {
+export async function showrun(input, { scenes = 3, source = "logline", maxScenes = 24, outDir = "output/film", render = true, forceStrategy, voiceover = false, log = console.log, onEvent = () => {} } = {}) {
   const dir = path.resolve(outDir);
   mkdirSync(dir, { recursive: true });
   const emit = (id, patch) => { try { onEvent({ id, ...patch }); } catch {} };
@@ -128,14 +128,14 @@ export async function showrun(input, { scenes = 3, source = "logline", maxScenes
         sceneClip = path.join(dir, `scene_${sp.scene.id}_edited.mp4`);
         await assembleEdit(spineU.clipPath, Object.fromEntries(cuts.map((u) => [u.id, u.clipPath])), edl, sceneClip, dir);
       }
-      const voPath = await voiceForShot(spineU.shot, path.join(dir, `vo_s${sp.scene.id}.wav`), { voice: pickVoice(p, spineU.shot) });
+      const voPath = voiceover ? await voiceForShot(spineU.shot, path.join(dir, `vo_s${sp.scene.id}.wav`), { voice: pickVoice(p, spineU.shot) }) : null;
       sceneFinal = path.join(dir, `scene_${sp.scene.id}.mp4`);
       await buildSegment(sceneClip, voPath, sceneFinal);
     } else {
       const segs = [];
       let i = 0;
       for (const u of us) {
-        const voPath = await voiceForShot(u.shot, path.join(dir, `vo_${u.id}.wav`), { voice: pickVoice(p, u.shot) });
+        const voPath = voiceover ? await voiceForShot(u.shot, path.join(dir, `vo_${u.id}.wav`), { voice: pickVoice(p, u.shot) }) : null;
         const seg = path.join(dir, `seg_${u.id}_${String(++i).padStart(2, "0")}.mp4`);
         await buildSegment(u.clipPath, voPath, seg);
         segs.push(seg);
