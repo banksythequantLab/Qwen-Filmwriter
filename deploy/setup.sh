@@ -24,6 +24,10 @@ if ! command -v node >/dev/null 2>&1; then
 fi
 node -v
 
+echo "== 1b/6 ffmpeg (required by the stitch/assembly stage) =="
+command -v ffmpeg >/dev/null 2>&1 || sudo apt-get install -y ffmpeg
+ffmpeg -version | head -1
+
 echo "== 2/6 cloudflared =="
 if ! command -v cloudflared >/dev/null 2>&1; then
   curl -fsSL https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64.deb -o /tmp/cf.deb
