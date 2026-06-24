@@ -65,6 +65,11 @@ const server = createServer(async (req, res) => {
     if (!f || !existsSync(f)) return json(res, 404, { error: "no such film" });
     return streamMp4(req, res, f);
   }
+  if ((req.method === "GET" || req.method === "HEAD") && p[0] === "hero.mp4") {
+    const f = path.join(ROOT, "public", "hero.mp4");
+    if (!existsSync(f)) return json(res, 404, { error: "no hero" });
+    return streamMp4(req, res, f);
+  }
 
   if (req.method === "POST" && p[0] === "showrun") {
     const { logline, chapter, scenes = 3, maxScenes = 24 } = await body(req);
