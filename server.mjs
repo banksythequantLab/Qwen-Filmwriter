@@ -75,7 +75,7 @@ const server = createServer(async (req, res) => {
     const job = startJob(input, {
       source: isChapter ? "chapter" : "logline",
       scenes: clamp(scenes, 1, 12),
-      maxScenes: clamp(maxScenes, 2, 40),
+      maxScenes: clamp(maxScenes, 2, 80),
     });
     return json(res, 202, { jobId: job.id, status: job.status, poll: `/jobs/${job.id}` });
   }

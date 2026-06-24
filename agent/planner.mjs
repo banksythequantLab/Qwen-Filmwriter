@@ -56,7 +56,7 @@ export async function adapt(source, { maxScenes = 24, model = "qwen-plus" } = {}
   const sys = ADAPT_SYS.replace("{MAX}", String(maxScenes));
   const { text, usage } = await chat(
     [{ role: "system", content: sys }, { role: "user", content: `SOURCE TEXT:\n${source}` }],
-    { model, temperature: 0.6, max_tokens: 8000 }
+    { model, temperature: 0.6, max_tokens: 12000 }
   );
   return { plan: parseJson(text), usage };
 }
