@@ -42,7 +42,9 @@ export async function showrun(input, { scenes = 3, source = "logline", maxScenes
   writeFileSync(path.join(dir, "storyboard.json"), JSON.stringify({ plan: p, scenes: scenesPlan }, null, 2));
 
   // Register storyboard panels up front so the UI shows the board filling in live.
-  if (p.characters?.[0]) emit("ref", { scene: 0, label: `Reference · ${p.characters[0].name}`, status: "pending" });
+  const MAX_REFS = +(process.env.QWEN_MAX_REFS || 8);
+  const castToRef = (p.characters || []).slice(0, MAX_REFS);   // one reference per named character (capped)
+  castToRef.forEach((ch, i) => emit(`ref_${i}`, { scene: 0, label: `Reference · ${ch.name}`, status: "pending" }));
   for (const sp of scenesPlan) {
     const isLong = sp.strategy === "longtake" && sp.shots.length >= 2;
     const beat = String(sp.scene.beat || "").replace(/\s+/g, " ").trim().slice(0, 52);
@@ -55,21 +57,22 @@ export async function showrun(input, { scenes = 3, source = "logline", maxScenes
   }
   if (!render) return { title: p.title, scenes: scenesPlan.length, storyboard: path.join(dir, "storyboard.json") };
 
-  // Character reference (subject consistency): one approved portrait, reused across every shot.
-  let referenceUrl = null;
-  const lead = p.characters?.[0];
-  if (lead) {
-    log(`reference: ${lead.name} ...`);
-    emit("ref", { status: "drawing" });
+  // Character references (subject consistency): one approved portrait PER named character, reused across shots.
+  const refByName = {};
+  let referenceUrl = null;   // lead ref — fallback anchor for establishing/character-less shots
+  for (let i = 0; i < castToRef.length; i++) {
+    const ch = castToRef[i], pid = `ref_${i}`;
+    log(`reference: ${ch.name} ...`);
+    emit(pid, { status: "drawing" });
     const ref = await approvedStill(
-      `Character model sheet of ${lead.name}: ${lead.description}. ${p.style}. Front view, head and shoulders, on a clean pure white seamless studio background, soft even lighting, subtle contact shadow only, no text.`,
+      `Character model sheet of ${ch.name}: ${ch.description}. ${p.style}. Front view, head and shoulders, on a clean pure white seamless studio background, soft even lighting, subtle contact shadow only, no text.`,
       { size: "1328*1328", maxRetries: 1,
-        onStep: (a, v, url) => { log(`   ref still ${a}: pass=${v.pass}`); emit("ref", { status: v.pass ? "frame" : "drawing", stillUrl: url, attempt: a, pass: v.pass }); },
-        onLegal: (a, lv) => log(`   ref legal ${a}: ${lv.pass ? "clear" : "FLAG " + (lv.ip_issue || lv.text_issue || "issue")}`) });
-    referenceUrl = ref.url;
-    emit("ref", { status: "frame", stillUrl: ref.url });
-    if (referenceUrl) await download(referenceUrl, path.join(dir, "character_ref.png"));
+        onStep: (a, v, url) => { log(`   ref ${ch.name} ${a}: pass=${v.pass}`); emit(pid, { status: v.pass ? "frame" : "drawing", stillUrl: url, attempt: a, pass: v.pass }); },
+        onLegal: (a, lv) => log(`   ref ${ch.name} legal ${a}: ${lv.pass ? "clear" : "FLAG " + (lv.ip_issue || lv.text_issue || "issue")}`) });
+    if (ref.url) { refByName[ch.name] = ref.url; emit(pid, { status: "frame", stillUrl: ref.url }); await download(ref.url, path.join(dir, `character_ref_${i}.png`)); }
+    if (!referenceUrl) referenceUrl = ref.url;
   }
+  log(`references: ${Object.keys(refByName).length} of ${castToRef.length} character(s) anchored`);
 
   // ---- PHASE 1: STORYBOARD — generate every still in parallel (capped), board-first ----
   // imageEdit (subject-consistency) has a strict rate quota -> stills sequential by default;
@@ -90,7 +93,7 @@ export async function showrun(input, { scenes = 3, source = "logline", maxScenes
   log(`storyboard: ${units.length} panels (stills x${STILL_CC} parallel)`);
   await mapLimit(units, STILL_CC, async (u) => {
     const imgPrompt = `${u.prompts.image_prompt}. Overall style: ${p.style}`;
-    const still = await approvedStill(imgPrompt, { referenceUrl, size: STILL_SIZE,
+    const still = await approvedStill(imgPrompt, { referenceUrl: pickRefs(u, refByName, referenceUrl), size: STILL_SIZE,
       onStep: (a, v, url) => { log(`   ${u.id} still ${a}: pass=${v.pass}`); emit(u.id, { status: v.pass ? "frame" : "drawing", stillUrl: url, attempt: a, pass: v.pass }); },
       onLegal: (a, lv) => { log(`   ${u.id} legal ${a}: ${lv.pass ? "clear" : "FLAG " + (lv.ip_issue || lv.text_issue || "issue")}`); emit(u.id, { legal: lv.pass ? "clear" : "flag" }); } });
     u.stillUrl = still.url;
@@ -181,4 +184,18 @@ async function mapLimit(items, n, fn) {
 function pickVoice(p, shot) {
   const ch = shot.dialogue?.[0]?.character;
   return (ch && p.characters?.find((c) => c.name === ch)?.voice) || p.characters?.[0]?.voice || "Cherry";
+}
+
+// Pick the reference image(s) for a shot: match the characters that actually appear in it
+// (by name token) and pass up to 3 of their portraits; fall back to the lead anchor otherwise.
+const REF_STOP = new Set(["the", "a", "an", "of", "and", "to", "in"]);
+function pickRefs(u, refByName, fallback) {
+  const names = Object.keys(refByName);
+  if (!names.length) return fallback || null;
+  const hay = `${u.shot?.subject || ""} ${u.shot?.action || ""} ${(u.shot?.dialogue || []).map((d) => d.character).join(" ")}`.toLowerCase();
+  const matched = names.filter((n) =>
+    n.toLowerCase().replace(/[()]/g, " ").split(/\s+/).some((tok) => tok.length >= 3 && !REF_STOP.has(tok) && hay.includes(tok))
+  ).map((n) => refByName[n]);
+  const urls = (matched.length ? matched : (fallback ? [fallback] : [])).slice(0, 3);
+  return urls.length ? urls : null;
 }

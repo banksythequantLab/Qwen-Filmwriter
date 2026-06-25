@@ -38,7 +38,7 @@ export async function approvedStill(imagePrompt, { maxRetries = 3, size, onStep,
     let im;
     try {
       im = referenceUrl
-        ? await imageEdit(referenceUrl, `Keep the character's exact identity (face, colors, design) from the reference image; render this shot, changing only the scene, pose, lighting, and framing: ${prompt}`, { negative_prompt: neg, ...(size ? { size } : {}) })
+        ? await imageEdit(referenceUrl, `Keep each referenced character's exact identity (face, hair, wardrobe, colors) from the reference image(s); render this shot, changing only the scene, pose, lighting, and framing: ${prompt}`, { negative_prompt: neg, ...(size ? { size } : {}) })
         : await image(prompt, { negative_prompt: neg, ...(size ? { size } : {}) });
     } catch (e) {
       // Content-moderation / edit failure (e.g. DataInspectionFailed 400). Don't crash the job:

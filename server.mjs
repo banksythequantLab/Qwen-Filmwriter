@@ -1,6 +1,6 @@
 // server.mjs — Filmwriter web app + async job API. No deps. node --env-file=.env server.mjs
 import { createServer } from "node:http";
-import { createReadStream, existsSync, statSync, readFileSync } from "node:fs";
+import { createReadStream, existsSync, statSync, readFileSync, readdirSync } from "node:fs";
 import { randomUUID } from "node:crypto";
 import path from "node:path";
 import { showrun } from "./agent/showrun.mjs";
@@ -58,11 +58,32 @@ const server = createServer(async (req, res) => {
   if (req.method === "GET" && p[0] === "api")
     return json(res, 200, { service: "filmwriter", endpoints: ["POST /showrun", "GET /jobs/:id", "GET /jobs/:id/film", "GET /gallery", "GET /gallery/:id/film"], active: jobs.size });
 
-  if (req.method === "GET" && p[0] === "gallery" && !p[1])
-    return json(res, 200, { films: GALLERY.filter(g => existsSync(path.join(ROOT, g.file))).map(g => ({ id: g.id, title: g.title, tag: g.tag, film: `/gallery/${g.id}/film` })) });
+  if (req.method === "GET" && p[0] === "gallery" && !p[1]) {
+    let made = [];
+    try {
+      const base = path.join(ROOT, "output/jobs");
+      made = readdirSync(base)
+        .map(id => ({ id, mp4: path.join(base, id, "final.mp4") }))
+        .filter(x => existsSync(x.mp4))
+        .map(x => {
+          let title = "Generated film";
+          try { title = JSON.parse(readFileSync(path.join(base, x.id, "storyboard.json"), "utf8")).plan?.title || title; } catch {}
+          return { id: x.id, title, tag: "Just generated", film: `/made/${x.id}/film`, mtime: statSync(x.mp4).mtimeMs };
+        })
+        .sort((a, b) => b.mtime - a.mtime)
+        .map(({ mtime, ...rest }) => rest);
+    } catch {}
+    const seed = GALLERY.filter(g => existsSync(path.join(ROOT, g.file))).map(g => ({ id: g.id, title: g.title, tag: g.tag, film: `/gallery/${g.id}/film` }));
+    return json(res, 200, { films: [...made, ...seed] });
+  }
   if ((req.method === "GET" || req.method === "HEAD") && p[0] === "gallery" && p[1] && p[2] === "film") {
     const g = GALLERY.find(x => x.id === p[1]); const f = g && path.join(ROOT, g.file);
     if (!f || !existsSync(f)) return json(res, 404, { error: "no such film" });
+    return streamMp4(req, res, f);
+  }
+  if ((req.method === "GET" || req.method === "HEAD") && p[0] === "made" && p[1] && p[2] === "film") {
+    const f = path.join(ROOT, "output/jobs", path.basename(p[1]), "final.mp4");
+    if (!existsSync(f)) return json(res, 404, { error: "no such film" });
     return streamMp4(req, res, f);
   }
   if ((req.method === "GET" || req.method === "HEAD") && p[0] === "hero.mp4") {
