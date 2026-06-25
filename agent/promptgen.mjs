@@ -9,10 +9,11 @@ Return STRICT JSON ONLY:
 - BE CONCRETE AND UNAMBIGUOUS about key objects, vehicles, and locations named in the beat: use the exact noun (e.g. "motorcycle", never the ambiguous "bike"; "skateboard", not "board"; "sedan", not "car" when specified). NEVER substitute a different object than the story specifies.
 - Keep characters visually consistent with their descriptions for continuity across shots. Do NOT request any on-screen text or signage.
 - For close-up and insert shots, use a shallow depth of field with a soft, out-of-focus (bokeh) background, and keep all background signage blurred/unreadable so focus stays on the subject.
+- Use the STORY SO FAR only as context so this shot connects to what came before and sets up what follows — depict only THIS shot's moment, not earlier events.
 - motion_prompt: concise — what moves in the shot plus the camera move, for animating that still.`;
 
-export async function promptgen(shot, { style, characters, setting, beat = "", intent = "", title = "", model = "qwen-plus" } = {}) {
-  const ctx = `FILM: ${title}\nSTYLE: ${style}\nCHARACTERS: ${JSON.stringify(characters)}\nSTORY BEAT: ${beat}${intent ? `\nBEAT INTENT: ${intent}` : ""}\nSETTING: ${setting}\nSHOT: ${JSON.stringify(shot)}`;
+export async function promptgen(shot, { style, characters, setting, beat = "", intent = "", title = "", storySoFar = "", model = "qwen-plus" } = {}) {
+  const ctx = `FILM: ${title}\nSTYLE: ${style}\nCHARACTERS: ${JSON.stringify(characters)}${storySoFar ? `\n\nSTORY SO FAR:\n${storySoFar}` : ""}\nSTORY BEAT: ${beat}${intent ? `\nBEAT INTENT: ${intent}` : ""}\nSETTING: ${setting}\nSHOT: ${JSON.stringify(shot)}`;
   const { text, usage } = await chat(
     [{ role: "system", content: SYS }, { role: "user", content: ctx }],
     { model, temperature: 0.8, max_tokens: 600 }

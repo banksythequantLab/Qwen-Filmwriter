@@ -11,6 +11,7 @@ import { voiceForShot } from "./voice.mjs";
 import { editorPlan, assembleEdit } from "./editor.mjs";
 import { buildSegment, concat, finalize } from "./stitch.mjs";
 import { video, download } from "../lib/qwen.mjs";
+import { architect, storyReview } from "./story.mjs";
 
 export async function showrun(input, { scenes = 3, source = "logline", maxScenes = 24, aspect = "16:9", outDir = "output/film", render = true, forceStrategy, voiceover = false, log = console.log, onEvent = () => {} } = {}) {
   const dir = path.resolve(outDir);
@@ -26,17 +27,43 @@ export async function showrun(input, { scenes = 3, source = "logline", maxScenes
     : await plan(input, { scenes });
   log(`title: ${p.title}  |  ${p.scenes.length} scenes  |  style: ${p.style}`);
 
-  // Expand: scene -> { strategy, shots(+prompts) }
+  // ---- STORY EDITOR (architect): critique + light-repair the arc BEFORE anything is filmed ----
+  if ((p.scenes || []).length >= 2) {
+    log(`story: editor reviewing the beat sheet`);
+    try {
+      const arch = await architect(p);
+      if (arch.ok) {
+        if (Array.isArray(arch.scenes) && arch.scenes.length === p.scenes.length) p.scenes = arch.scenes;
+        if (arch.review.spine) p.spine = arch.review.spine;
+        const sc = arch.review.score != null ? ` (${arch.review.score}/100)` : "";
+        log(`story: arc ${arch.review.tells_story ? "holds" : "needs work"}${sc}`);
+        for (const w of arch.review.weak_beats.slice(0, 6)) log(`story: weak beat S${w.id} — ${w.issue}`);
+        if (arch.review.notes) log(`story: note — ${arch.review.notes}`);
+      } else { log(`story: review skipped (kept original beats)`); }
+    } catch (e) { log(`story: review error — ${e.message}`); }
+  }
+  const spine = p.spine || p.logline || "";
+  const theme = p.theme || "";
+
+  // Expand: scene -> { strategy, shots(+prompts) }. Carry a running "story so far" into every shot.
   const scenesPlan = [];
+  const priorBeats = [];
   for (const scene of p.scenes) {
+    const storySoFar = [
+      theme ? `Theme: ${theme}` : "",
+      spine ? `Story spine: ${spine}` : "",
+      priorBeats.length ? `Story so far: ${priorBeats.slice(-10).join(" → ")}` : "This is the opening of the film.",
+      `This scene${scene.function ? ` (${scene.function})` : ""}: ${scene.beat}`
+    ].filter(Boolean).join("\n");
     const { strategy, shots } = await shotlist(scene, { style: p.style, characters: p.characters, title: p.title });
     const entries = [];
     for (const shot of shots) {
-      const prompts = await promptgen(shot, { style: p.style, characters: p.characters, setting: scene.setting, beat: scene.beat, intent: scene.intent, title: p.title });
+      const prompts = await promptgen(shot, { style: p.style, characters: p.characters, setting: scene.setting, beat: scene.beat, intent: scene.intent, title: p.title, storySoFar });
       entries.push({ shot, prompts });
     }
     const strat = forceStrategy || (entries.length >= 2 ? strategy : "montage");
     scenesPlan.push({ scene, strategy: strat, shots: entries });
+    priorBeats.push(`S${scene.id} ${String(scene.beat || "").replace(/\s+/g, " ").slice(0, 70)}`);
     log(`  scene ${scene.id} [${strat}] -> ${entries.length} shot(s)`);
   }
   writeFileSync(path.join(dir, "storyboard.json"), JSON.stringify({ plan: p, scenes: scenesPlan }, null, 2));
@@ -101,6 +128,31 @@ export async function showrun(input, { scenes = 3, source = "logline", maxScenes
     if (u.blocked) log(`   ${u.id} still: blocked by content filter — skipping shot`);
     emit(u.id, { status: still.url ? "frame" : "blocked", stillUrl: still.url });
   });
+
+  // ---- STORY EDITOR (vision): do the RENDERED frames actually tell the story? ----
+  try {
+    const beatById = new Map((p.scenes || []).map((s) => [s.id, s.beat]));
+    const seen = new Set();
+    let frames = [];
+    for (const u of units) {                       // one representative still per scene, in order
+      if (u.stillUrl && !seen.has(u.sceneId)) { seen.add(u.sceneId); frames.push({ id: u.sceneId, beat: beatById.get(u.sceneId) || "", url: u.stillUrl }); }
+    }
+    if (frames.length > 12) {                      // cap the vision payload — sample evenly across the film
+      const step = frames.length / 12;
+      frames = Array.from({ length: 12 }, (_, i) => frames[Math.floor(i * step)]);
+    }
+    if (frames.length >= 2) {
+      log(`story-review: watching ${frames.length} storyboard frames`);
+      const sr = await storyReview(p, frames);
+      if (sr.ok) {
+        log(`story-review: ${sr.review.tells_story ? "the frames tell the story" : "some frames miss the beat"}${sr.review.summary ? " — " + sr.review.summary : ""}`);
+        for (const w of (sr.review.weak_panels || []).slice(0, 8)) {
+          const pr = (sr.review.per_scene || []).find((x) => x.id === w);
+          log(`story-review: weak frame S${w}${pr && pr.issue ? " — " + pr.issue : ""}`);
+        }
+      } else { log(`story-review: skipped`); }
+    }
+  } catch (e) { log(`story-review: error — ${e.message}`); }
 
   // ---- PHASE 2: ANIMATE — dispatch videos with bounded concurrency (free-tier safe) ----
   log(`animate: ${units.length} clips (video x${VIDEO_CC} parallel)`);

@@ -2,16 +2,20 @@
 // Shot and prompt detail are produced downstream (shotlist -> promptgen).
 import { chat } from "../lib/qwen.mjs";
 
-const SYS = `You are an autonomous film Showrunner. Turn a logline into a SHORT-FILM story plan.
+const SYS = `You are a film STORY ARCHITECT. Turn a logline into a SHORT-FILM plan with a real dramatic arc.
 Return STRICT JSON ONLY (no markdown, no prose):
 {
   "title": string,
   "logline": string,
-  "style": string,               // global art direction (palette, grade, lens, era) — carried downstream for consistency
+  "theme": string,                // the one human idea the film is really about
+  "spine": string,                // the through-line as a causal chain: "X wants Y, and so... but then... therefore..."
+  "style": string,                // global art direction (palette, grade, lens, era) — carried downstream for consistency
   "characters": [{"name": string, "description": string, "voice": "Cherry"|"Ryan"|"Serena"|"Aiden"|"Vivian"}],
-  "scenes": [{"id": number, "beat": string, "setting": string, "intent": string}]
+  "scenes": [{"id": number, "function": "setup"|"inciting"|"rising"|"midpoint"|"complication"|"climax"|"resolution", "beat": string, "setting": string, "causal": string, "intent": string}]
 }
-Use exactly {N} scenes. Each scene is a STORY BEAT only — do NOT write shot, camera, or image details here.
+Use exactly {N} scenes that form ONE escalating arc: setup, an inciting turn, rising complications, a climax, a resolution.
+Each scene's "causal" states how it follows from the PREVIOUS scene using "therefore" or "but" — never a flat "and then". Stakes must rise across the film and the ending must pay off the setup.
+Each scene is a STORY BEAT only — do NOT write shot, camera, or image details here.
 Describe recurring characters consistently so downstream stages keep them visually stable.
 Design ORIGINAL characters and wardrobe. Never describe a character so it reproduces or resembles a trademarked or copyrighted franchise character or costume — no superhero suits, emblems, spider/arachnid or web motifs, masks, branded logos, capes, or celebrity likeness. Keep all descriptions safe-for-work.`;
 
@@ -42,13 +46,16 @@ Return STRICT JSON ONLY (no markdown, no prose):
 {
   "title": string,
   "logline": string,
+  "theme": string,                // the core idea the passage is really about
+  "spine": string,                // the through-line as a causal chain: "X wants Y, and so... but then... therefore..."
   "style": string,
   "characters": [{"name": string, "description": string, "voice": "Cherry"|"Ryan"|"Serena"|"Aiden"|"Vivian"}],
-  "scenes": [{"id": number, "beat": string, "setting": string, "intent": string}]
+  "scenes": [{"id": number, "function": "setup"|"inciting"|"rising"|"midpoint"|"complication"|"climax"|"resolution", "beat": string, "setting": string, "causal": string, "intent": string}]
 }
 Rules:
 - FAITHFUL adaptation: keep the source's characters, events, order, and mood. Do NOT invent major plot.
 - Decide the NUMBER of scenes from the material: one scene per distinct beat, location change, or dramatic turn. Use as many as the passage truly needs, but NO MORE THAN {MAX}.
+- Tag each scene's dramatic "function" within the passage's arc, and write "causal": how this scene follows from the previous one using "therefore" or "but" (never a flat "and then").
 - Each scene is a STORY BEAT only (no shot/camera/image detail; that is produced downstream).
 - Describe recurring characters consistently (look, age, clothing) so downstream stages keep them visually stable.
 - Give each named character a voice from the allowed list and reuse it for that character.

@@ -130,7 +130,7 @@ a{color:var(--cyan);text-decoration:none}
 .slate .clap{font-family:var(--f-disp);font-weight:700;font-size:12px;letter-spacing:.18em;text-transform:uppercase;color:var(--dim);display:flex;align-items:center;gap:9px;white-space:nowrap}
 .slate .clap b{color:var(--fg);font-weight:700}
 .slate .stripes{flex:1;height:15px;border-radius:3px;background:repeating-linear-gradient(45deg,#1e1e20 0 12px,#0a0a0b 12px 24px);border:1px solid var(--line);opacity:.7}
-.crew{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.crew{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
 .mate{position:relative;overflow:hidden;background:linear-gradient(180deg,rgba(28,28,31,.7),rgba(13,13,15,.7));border:1px solid var(--line);border-radius:15px;padding:15px;transition:opacity .4s,border-color .4s,box-shadow .4s,transform .25s;opacity:.42}
 .mate .top{display:flex;align-items:center;gap:12px}
 .mate .av{position:relative;overflow:hidden;width:44px;height:44px;border-radius:11px;display:grid;place-items:center;background:radial-gradient(circle at 50% 32%,#222226,#0e0e10);border:1px solid var(--line);flex:none;color:var(--faint);transition:.4s}
@@ -342,10 +342,12 @@ const ICON={
  legal:'<svg viewBox="0 0 24 24"><path d="M12 3l7 3v5c0 5-3.4 8.6-7 10-3.6-1.4-7-5-7-10V6z"/><path d="M9 12l2 2 4-4"/></svg>',
  shoot:'<svg viewBox="0 0 24 24"><rect x="2.5" y="7" width="13" height="10" rx="1.5"/><path d="M15.5 10.5l6-3v9l-6-3z"/><circle cx="6" cy="4.6" r="1.3"/><circle cx="10" cy="4.6" r="1.3"/></svg>',
  edit:'<svg viewBox="0 0 24 24"><circle cx="6" cy="6" r="2.3"/><circle cx="6" cy="18" r="2.3"/><path d="M8 7.4l12 9.2M8 16.6L20 7.4"/></svg>',
+ story:'<svg viewBox="0 0 24 24"><path d="M5 3h9l5 5v11a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z"/><path d="M14 3v5h5"/><path d="M7 14l2.4-3 2 2.4L14 9.5"/></svg>',
 };
 const CREW=[
  {id:'show', av:'🎬', nm:'The Showrunner', rl:'Director',     act:'Calling the shots',  idle:'Standing by', done:"That's the picture"},
  {id:'write',av:'✍️', nm:'Margot Penn',    rl:'Screenwriter', act:'Writing the script', idle:'Standing by', done:'Script locked'},
+ {id:'story',av:'📖', nm:'Theo Brandt',    rl:'Story Editor', act:'Checking the arc',   idle:'Standing by', done:'The story holds', flag:'Story note — beats miss'},
  {id:'board',av:'🎨', nm:'Vee Dax',        rl:'Storyboard',   act:'Drawing the boards', idle:'Standing by', done:'Boards complete'},
  {id:'cont', av:'👁️', nm:'Iris Calder',    rl:'Continuity',   act:'Checking every frame', idle:'Standing by', done:'Continuity approved', flag:'Reshoot — a detail drifted'},
  {id:'legal',av:'⚖️', nm:'Avery Sloan',    rl:'Legal · Clearances', act:'Clearing rights & text', idle:'Standing by', done:'Cleared for release', flag:'Infringement — reroll ordered'},
@@ -362,9 +364,11 @@ function crewStates(t,panels,status){
   let ph=0; if(wrote)ph=1; if(boarding)ph=2; if(qa)ph=3; if(animating)ph=4; if(editing)ph=5; if(done)ph=6;
   const m=t.match(/pass=(true|false)(?![\s\S]*pass=(?:true|false))/); const lastFail=!!(m&&m[1]==='false');
   const lm=t.match(/legal \d+: (clear|FLAG)(?![\s\S]*legal \d+: (?:clear|FLAG))/); const legalFlag=!!(lm&&lm[1]==='FLAG');
+  const storyFlag=has(/story: arc needs work|story-review: some frames miss|story-review: weak frame/);
   return {scenes,total,stills,clips,
     show: done?'done':'active',
     write: ph>=1?'done':'active',
+    story: storyFlag?'flag':(ph>=2?'done':(wrote?'active':'idle')),
     board: ph>=3?'done':(ph>=1?'active':'idle'),
     cont:  ph>=4?'done':(ph===3?(lastFail?'flag':'active'):'idle'),
     legal: ph>=4?'done':(ph===3?(legalFlag?'flag':'active'):'idle'),
@@ -391,6 +395,7 @@ function renderCrew(t,panels,status){
         else if(a.id==='shoot') count=st.clips+' / '+(st.total||'…')+' shots';
         else if(a.id==='edit') count='assembling cut';
         else if(a.id==='write') count='breaking story';
+        else if(a.id==='story') count='reading the arc';
         else count='unit rolling';
         if(elapsed) count+='  ·  '+elapsed;
       }
