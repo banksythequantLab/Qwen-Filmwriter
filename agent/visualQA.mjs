@@ -20,7 +20,7 @@ export async function reviewStill(imageUrl, imagePrompt, { model = "qwen3-vl-plu
 
 // Generate -> QA -> regenerate (with the QA's fix_hint fed back) until pass or maxRetries exhausted.
 export async function approvedStill(imagePrompt, { maxRetries = 3, size, onStep, referenceUrl } = {}) {
-  const baseNeg = "text, words, letters, captions, subtitles, signage, watermark, logo, garbled text, distorted typography";
+  const baseNeg = "text, words, letters, captions, subtitles, signage, watermark, logo, garbled text, distorted typography, copyrighted character, trademarked franchise character, superhero costume, masked vigilante in spandex, web-pattern bodysuit, comic-book emblem, cape, branded logo, mascot, celebrity likeness, nsfw, nudity, gore";
   let history = [], best = null, bestScore = -Infinity, last = null;
   for (let attempt = 1; attempt <= maxRetries + 1; attempt++) {
     let prompt = imagePrompt, neg = baseNeg;
@@ -33,9 +33,30 @@ export async function approvedStill(imagePrompt, { maxRetries = 3, size, onStep,
       if (last.spelling_ok === false) neg += ", neon signs, billboards, advertisements, shop signs, kanji, glyphs, symbols";
       if (last.anatomy_ok === false) neg += ", deformed hands, extra fingers, distorted face, malformed limbs";
     }
-    const im = referenceUrl
-      ? await imageEdit(referenceUrl, `Keep the character's exact identity (face, colors, design) from the reference image; render this shot, changing only the scene, pose, lighting, and framing: ${prompt}`, { negative_prompt: neg, ...(size ? { size } : {}) })
-      : await image(prompt, { negative_prompt: neg, ...(size ? { size } : {}) });
+    let im;
+    try {
+      im = referenceUrl
+        ? await imageEdit(referenceUrl, `Keep the character's exact identity (face, colors, design) from the reference image; render this shot, changing only the scene, pose, lighting, and framing: ${prompt}`, { negative_prompt: neg, ...(size ? { size } : {}) })
+        : await image(prompt, { negative_prompt: neg, ...(size ? { size } : {}) });
+    } catch (e) {
+      // Content-moderation / edit failure (e.g. DataInspectionFailed 400). Don't crash the job:
+      // drop the (possibly flagged) reference and fall back to a clean, then sanitized, text-to-image.
+      try {
+        im = await image(prompt, { negative_prompt: neg, ...(size ? { size } : {}) });
+      } catch (e2) {
+        const safe = prompt.replace(/\b(spider|arachno\w*|web[-\s]?sling\w*|superhero|super-hero|costume|masked?|cape|emblem|insignia|logo|brand\w*)\b/gi, "")
+                           .replace(/\s{2,}/g, " ").trim();
+        try {
+          im = await image(`${safe} — original character design, plain modern clothing, safe for work`, { negative_prompt: neg, ...(size ? { size } : {}) });
+        } catch (e3) {
+          const v = { pass: false, blocked: true, prompt_match: false, spelling_ok: true, anatomy_ok: true,
+                      issues: ["blocked by content filter"], fix_hint: "use a plainer original safe-for-work design" };
+          history.push({ attempt, url: null, verdict: v });
+          if (onStep) onStep(attempt, v, null);
+          last = v; continue;                                  // next attempt; never throw
+        }
+      }
+    }
     const verdict = await reviewStill(im.url, imagePrompt);   // judge against the ORIGINAL spec
     history.push({ attempt, url: im.url, verdict });
     if (onStep) onStep(attempt, verdict, im.url);
@@ -44,5 +65,6 @@ export async function approvedStill(imagePrompt, { maxRetries = 3, size, onStep,
     if (verdict.pass) return { ...best, history, approved: true };
     last = verdict;
   }
-  return { ...best, history, approved: false };                // best-scoring effort after retries
+  return best ? { ...best, history, approved: false }          // best-scoring effort after retries
+              : { url: null, history, approved: false, blocked: true };  // every attempt blocked by moderation
 }

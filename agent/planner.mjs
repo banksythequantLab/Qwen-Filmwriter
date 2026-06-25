@@ -12,7 +12,8 @@ Return STRICT JSON ONLY (no markdown, no prose):
   "scenes": [{"id": number, "beat": string, "setting": string, "intent": string}]
 }
 Use exactly {N} scenes. Each scene is a STORY BEAT only — do NOT write shot, camera, or image details here.
-Describe recurring characters consistently so downstream stages keep them visually stable.`;
+Describe recurring characters consistently so downstream stages keep them visually stable.
+Design ORIGINAL characters and wardrobe. Never describe a character so it reproduces or resembles a trademarked or copyrighted franchise character or costume — no superhero suits, emblems, spider/arachnid or web motifs, masks, branded logos, capes, or celebrity likeness. Keep all descriptions safe-for-work.`;
 
 export async function plan(logline, { scenes = 3, model = "qwen-max" } = {}) {
   const sys = SYS.replace("{N}", String(scenes));
@@ -50,7 +51,8 @@ Rules:
 - Decide the NUMBER of scenes from the material: one scene per distinct beat, location change, or dramatic turn. Use as many as the passage truly needs, but NO MORE THAN {MAX}.
 - Each scene is a STORY BEAT only (no shot/camera/image detail; that is produced downstream).
 - Describe recurring characters consistently (look, age, clothing) so downstream stages keep them visually stable.
-- Give each named character a voice from the allowed list and reuse it for that character.`;
+- Give each named character a voice from the allowed list and reuse it for that character.
+- ORIGINAL VISUAL DESIGN: even when adapting copyrighted prose, render every character's LOOK as an original, generic design. Describe wardrobe in plain terms (fabric, color, cut) and NEVER use franchise-identifying or superhero-costume language — no spider/arachnid or web motifs, emblems, masks, branded logos, capes, or any trademarked character likeness. Keep all descriptions safe-for-work so they pass content moderation.`;
 
 export async function adapt(source, { maxScenes = 24, model = "qwen-plus" } = {}) {
   const sys = ADAPT_SYS.replace("{MAX}", String(maxScenes));

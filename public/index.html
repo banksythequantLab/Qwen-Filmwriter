@@ -125,30 +125,42 @@ a{color:var(--cyan);text-decoration:none}
 .spin{width:17px;height:17px;border:2px solid #2a3344;border-top-color:var(--cyan);border-radius:50%;animation:spin .8s linear infinite;display:inline-block}
 @keyframes spin{to{transform:rotate(360deg)}}
 
-/* crew — the AI film team, lighting up as they work */
-.crew{display:grid;grid-template-columns:repeat(auto-fit,minmax(152px,1fr));gap:10px;margin:0 0 20px}
-.mate{position:relative;background:linear-gradient(180deg,rgba(28,25,21,.6),rgba(16,14,12,.55));border:1px solid var(--line);border-radius:13px;padding:13px;transition:opacity .35s,border-color .35s,box-shadow .35s,transform .2s;opacity:.45}
-.mate .who{display:flex;align-items:center;gap:9px}
-.mate .av{width:33px;height:33px;border-radius:9px;display:grid;place-items:center;font-size:18px;background:var(--panel2);border:1px solid var(--line);flex:none;filter:grayscale(.6)}
-.mate .nm{font-family:var(--f-disp);font-weight:600;font-size:13.5px;line-height:1.1}
-.mate .rl{font-family:var(--f-mono);font-size:9.5px;letter-spacing:.07em;text-transform:uppercase;color:var(--faint);margin-top:2px}
-.mate .say{margin-top:10px;font-size:12.5px;line-height:1.36;color:var(--dim);min-height:50px}
-.mate .st{position:absolute;top:12px;right:13px;font-family:var(--f-mono);font-size:9px;letter-spacing:.09em;text-transform:uppercase;color:var(--faint)}
-.mate.active{opacity:1;border-color:rgba(224,164,78,.55);box-shadow:0 0 0 1px rgba(224,164,78,.2),0 14px 32px rgba(0,0,0,.45);transform:translateY(-2px)}
-.mate.active .av{filter:none;background:rgba(224,164,78,.14);border-color:rgba(224,164,78,.45)}
+/* crew — the film unit, a 3x2 slate that lights up + counts the work */
+.slate{display:flex;align-items:center;gap:13px;margin:24px 0 13px}
+.slate .clap{font-family:var(--f-disp);font-weight:700;font-size:12px;letter-spacing:.18em;text-transform:uppercase;color:var(--dim);display:flex;align-items:center;gap:9px;white-space:nowrap}
+.slate .clap b{color:var(--amber);font-weight:700}
+.slate .stripes{flex:1;height:15px;border-radius:3px;background:repeating-linear-gradient(45deg,#211c16 0 12px,#0c0a09 12px 24px);border:1px solid var(--line);opacity:.65}
+.crew{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.mate{position:relative;overflow:hidden;background:linear-gradient(180deg,rgba(30,27,22,.72),rgba(14,12,10,.72));border:1px solid var(--line);border-radius:15px;padding:15px;transition:opacity .4s,border-color .4s,box-shadow .4s,transform .25s;opacity:.4}
+.mate .top{display:flex;align-items:center;gap:12px}
+.mate .av{position:relative;width:44px;height:44px;border-radius:50%;display:grid;place-items:center;font-size:22px;background:radial-gradient(circle at 50% 32%,#2b2620,#131110);border:1px solid var(--line);flex:none;filter:grayscale(.75) brightness(.78);transition:.4s}
+.mate .meta{min-width:0}
+.mate .nm{font-family:var(--f-disp);font-weight:600;font-size:14.5px;line-height:1.15;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mate .rl{font-family:var(--f-mono);font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:var(--faint);margin-top:3px}
+.mate .say{margin-top:13px;font-size:11.5px;color:var(--dim);font-family:var(--f-mono);letter-spacing:.02em;display:flex;align-items:center;gap:8px;min-height:16px}
+.mate .dot{width:7px;height:7px;border-radius:50%;flex:none}
+.mate .badge{position:absolute;top:14px;right:14px;font-family:var(--f-mono);font-size:8px;letter-spacing:.12em;text-transform:uppercase;color:var(--faint);border:1px solid var(--line);border-radius:20px;padding:3px 8px}
+.mate .count{margin-top:9px;font-family:var(--f-mono);font-size:10.5px;color:var(--amber);letter-spacing:.03em;display:none}
+.mate .prog{position:absolute;left:0;right:0;bottom:0;height:3px;overflow:hidden}
+.mate .prog::before{content:"";position:absolute;top:0;left:-42%;width:42%;height:100%;background:linear-gradient(90deg,transparent,var(--amber),transparent);animation:sweep 1.25s linear infinite;display:none}
+.mate.active{opacity:1;border-color:rgba(224,164,78,.6);box-shadow:0 0 0 1px rgba(224,164,78,.16),0 18px 42px rgba(0,0,0,.5);transform:translateY(-3px)}
+.mate.active .av{filter:none;border-color:rgba(224,164,78,.6);box-shadow:0 0 24px rgba(224,164,78,.34)}
 .mate.active .say{color:var(--fg)}
-.mate.active .st{color:var(--amber)}
-.mate.active .st::before{content:"● ";animation:pulse 1.4s ease-in-out infinite}
-.mate.done{opacity:.9}
-.mate.done .av{filter:none}
-.mate.done .st{color:var(--green)}
-.mate.done .st::before{content:"✓ "}
-.mate.flag{opacity:1;border-color:rgba(207,122,106,.55);box-shadow:0 0 0 1px rgba(207,122,106,.2)}
-.mate.flag .av{filter:none;background:rgba(207,122,106,.14);border-color:rgba(207,122,106,.45)}
+.mate.active .badge{color:#0c0a09;background:var(--amber);border-color:var(--amber);font-weight:700}
+.mate.active .count{display:block}
+.mate.active .prog::before{display:block}
+.mate.active .dot{background:var(--amber);box-shadow:0 0 9px var(--amber);animation:pulse 1.3s ease-in-out infinite}
+.mate.done{opacity:.78}
+.mate.done .av{filter:none;opacity:.92}
+.mate.done .badge{color:var(--green);border-color:rgba(143,185,138,.5)}
+.mate.done .dot{background:var(--green)}
+.mate.flag{opacity:1;border-color:rgba(207,122,106,.6);box-shadow:0 0 0 1px rgba(207,122,106,.16)}
+.mate.flag .av{filter:none;border-color:rgba(207,122,106,.6);box-shadow:0 0 22px rgba(207,122,106,.3)}
+.mate.flag .badge{color:#fff;background:var(--red);border-color:var(--red);font-weight:700}
 .mate.flag .say{color:#e7b3a8}
-.mate.flag .st{color:var(--red)}
-.mate.flag .st::before{content:"⟳ "}
-@media(max-width:640px){.crew{grid-template-columns:1fr 1fr}.mate .rl{display:none}.mate .say{min-height:38px}}
+.mate.flag .dot{background:var(--red);box-shadow:0 0 9px var(--red);animation:pulse .9s ease-in-out infinite}
+@keyframes sweep{to{left:140%}}
+@media(max-width:640px){.crew{grid-template-columns:1fr 1fr}.mate .rl{display:none}}
 
 /* terminal */
 .term{background:var(--panel2);border:1px solid var(--line);border-radius:14px;overflow:hidden;box-shadow:0 16px 40px rgba(0,0,0,.35)}
@@ -227,12 +239,15 @@ a{color:var(--cyan);text-decoration:none}
 
   <div class="stage" id="stage">
     <div class="pipe" id="pipe"></div>
-    <div class="crew" id="crew"></div>
     <div class="bhead" id="bhead">
       <span class="bt">Storyboard</span><span class="bc" id="bcount"></span>
       <span class="leg"><span><i style="background:var(--cyan)"></i>frame</span><span><i style="background:var(--amber)"></i>animating</span><span><i style="background:var(--green)"></i>ready</span></span>
     </div>
     <div class="board" id="board"></div>
+    <div class="slate" id="slate" style="display:none">
+      <span class="clap">🎬&nbsp; <b>The&nbsp;Unit</b> &nbsp;·&nbsp; on&nbsp;set</span><span class="stripes"></span>
+    </div>
+    <div class="crew" id="crew"></div>
     <div class="term">
       <div class="bar"><i style="background:#ed6a5e"></i><i style="background:#f5bf4f"></i><i style="background:#62d16e"></i>
         <span class="t mono" id="termtitle">showrun — directing…</span></div>
@@ -310,60 +325,66 @@ function renderBoard(panels){
     return '<div class="cell '+st+'">'+img+ph+'<div class="tag"><span>'+esc(p.label||p.id)+'</span><span class="st">'+esc(label)+'</span></div></div>';
   }).join('');
 }
-// ---- the crew: named agents that light up + narrate as the pipeline works ----
+// ---- the crew: a named film unit that lights up + counts the work ----
 const CREW=[
- {id:'show',av:'🎬',nm:'The Showrunner',rl:'Director',
-  work:["Lights up — we're making a picture.","Places, everyone. We roll on my call.","Keeping this whole circus on the rails."],
-  done:["And… that's the picture. Beautiful work, team."]},
- {id:'write',av:'✍️',nm:'Margot Penn',rl:'Screenwriter',
-  work:["Breaking the story into beats…","Chasing the spine of the thing…","Structure is everything; dialogue is cheap."],
-  done:["Script's locked — {scenes} scenes, every one earns its keep."]},
- {id:'board',av:'🎨',nm:'Vee Dax',rl:'Storyboard',
-  work:["Sketching every beat, frame by frame…","Wide establishing here, then we push in.","Blocking the shots — fast and loose."],
-  done:["Boards are up. It's all there on paper."]},
- {id:'cont',av:'👁️',nm:'Iris Calder',rl:'Continuity',
-  work:["Eyeing every frame for slips…","Same face, same light, same world — or it's a redo.","Nothing gets past me."],
-  flag:["Nope. That detail drifted — do it again.","Caught one. Continuity break — reshoot the frame."],
-  done:["Every frame checks out. Approved."]},
- {id:'shoot',av:'🎥',nm:'Sergio Ray',rl:'Cinematographer',
-  work:["Rolling camera…","And… ACTION!","Let it breathe — hold the move…"],
-  done:["Cut. We got it. Gorgeous."]},
- {id:'edit',av:'🎞️',nm:'Max Cutter',rl:'Editor',
-  work:["Finding the cut in the footage…","Trimming the fat, right on the beat.","Laying it end to end…"],
-  done:["That's a wrap. Print it. 🎬"]},
+ {id:'show', av:'🎬', nm:'The Showrunner', rl:'Director',     act:'Calling the shots',  idle:'Standing by', done:"That's the picture"},
+ {id:'write',av:'✍️', nm:'Margot Penn',    rl:'Screenwriter', act:'Writing the script', idle:'Standing by', done:'Script locked'},
+ {id:'board',av:'🎨', nm:'Vee Dax',        rl:'Storyboard',   act:'Drawing the boards', idle:'Standing by', done:'Boards complete'},
+ {id:'cont', av:'👁️', nm:'Iris Calder',    rl:'Continuity',   act:'Checking every frame', idle:'Standing by', done:'Continuity approved', flag:'Reshoot — a detail drifted'},
+ {id:'shoot',av:'🎥', nm:'Sergio Ray',     rl:'Cinematographer', act:'Rolling camera',  idle:'Standing by', done:'Footage in the can'},
+ {id:'edit', av:'🎞️', nm:'Max Cutter',     rl:'Editor',       act:'Cutting the picture', idle:'Standing by', done:"That's a wrap"},
 ];
 function crewStates(t,panels,status){
   const has=re=>re.test(t); const P=panels||[];
   const scenes=(t.match(/\|\s*(\d+)\s*scenes/)||[])[1]||'';
+  const total=P.length, stills=P.filter(p=>p.stillUrl).length, clips=P.filter(p=>p.status==='clip').length;
   const wrote=has(/title:/), boarding=has(/scene \d|storyboard:/), qa=has(/pass=(true|false)/);
   const animating=has(/animate:|video x|RUNNING/)||P.some(p=>['video_pending','animating','clip'].includes(p.status));
   const editing=has(/EDL|FINAL CUT/), done=status==='done'||has(/FINAL CUT/);
   let ph=0; if(wrote)ph=1; if(boarding)ph=2; if(qa)ph=3; if(animating)ph=4; if(editing)ph=5; if(done)ph=6;
   const m=t.match(/pass=(true|false)(?![\s\S]*pass=(?:true|false))/); const lastFail=!!(m&&m[1]==='false');
-  return {_scenes:scenes,
-    show:{state:done?'done':'active'},
-    write:{state:ph>=1?'done':'active'},
-    board:{state:ph>=3?'done':(ph>=1?'active':'idle')},
-    cont:{state:ph>=4?'done':(ph===3?(lastFail?'flag':'active'):'idle')},
-    shoot:{state:ph>=5?'done':(ph===4?'active':'idle')},
-    edit:{state:ph>=6?'done':(ph===5?'active':'idle')}};
+  return {scenes,total,stills,clips,
+    show: done?'done':'active',
+    write: ph>=1?'done':'active',
+    board: ph>=3?'done':(ph>=1?'active':'idle'),
+    cont:  ph>=4?'done':(ph===3?(lastFail?'flag':'active'):'idle'),
+    shoot: ph>=5?'done':(ph===4?'active':'idle'),
+    edit:  ph>=6?'done':(ph===5?'active':'idle')};
 }
+function fmtT(ms){ if(ms<0)ms=0; const s=Math.floor(ms/1000); return (Math.floor(s/60))+':'+String(s%60).padStart(2,'0'); }
+let _crewCache=null, _jobStart=0, crewTick=null;
 function renderCrew(t,panels,status){
   try{
     const cr=el('crew'); if(!cr) return;
-    const st=crewStates(t||'',panels||[],status||'running'); const tick=Math.floor(Date.now()/3500);
+    _crewCache={t:t||'',panels:panels||[],status:status||'running'};
+    const st=crewStates(_crewCache.t,_crewCache.panels,_crewCache.status);
+    const elapsed=_jobStart?fmtT(Date.now()-_jobStart):'';
     cr.innerHTML=CREW.map(a=>{
-      const s=st[a.id]||{state:'idle'};
-      const pool=s.state==='flag'&&a.flag?a.flag:s.state==='done'?a.done:a.work;
-      let say=s.state==='idle'?'Standing by…':(pool[tick%pool.length]||pool[0]||'');
-      say=say.replace('{scenes}',st._scenes||'a few');
-      const stt=s.state==='idle'?'standby':s.state==='done'?'wrapped':s.state==='flag'?'reshoot':'on set';
-      return '<div class="mate '+(s.state==='idle'?'':s.state)+'"><span class="st">'+stt+'</span>'+
-        '<div class="who"><span class="av">'+a.av+'</span><div><div class="nm">'+esc(a.nm)+'</div><div class="rl">'+esc(a.rl)+'</div></div></div>'+
-        '<div class="say">'+esc(say)+'</div></div>';
+      const s=st[a.id]||'idle';
+      let say = s==='flag'?(a.flag||a.act) : s==='done'?a.done : s==='active'?a.act : a.idle;
+      if(a.id==='write'&&s==='done'&&st.scenes) say='Script locked · '+st.scenes+' scenes';
+      const badge = s==='idle'?'hold' : s==='done'?'wrap' : s==='flag'?'reshoot' : 'live';
+      let count='';
+      if(s==='active'){
+        if(a.id==='board'||a.id==='cont') count=st.stills+' / '+(st.total||'…')+' frames';
+        else if(a.id==='shoot') count=st.clips+' / '+(st.total||'…')+' shots';
+        else if(a.id==='edit') count='assembling cut';
+        else if(a.id==='write') count='breaking story';
+        else count='unit rolling';
+        if(elapsed) count+='  ·  '+elapsed;
+      }
+      const dot = s==='idle'?'':'<span class="dot"></span>';
+      return '<div class="mate '+(s==='idle'?'':s)+'"><span class="badge">'+badge+'</span>'+
+        '<div class="top"><span class="av">'+a.av+'</span>'+
+          '<div class="meta"><div class="nm">'+esc(a.nm)+'</div><div class="rl">'+esc(a.rl)+'</div></div></div>'+
+        '<div class="say">'+dot+esc(say)+'</div>'+
+        (count?'<div class="count">'+esc(count)+'</div>':'')+
+        '<div class="prog"></div></div>';
     }).join('');
   }catch(e){}
 }
+function startCrewTick(){ stopCrewTick(); crewTick=setInterval(()=>{ if(_crewCache) renderCrew(_crewCache.t,_crewCache.panels,_crewCache.status); },1000); }
+function stopCrewTick(){ if(crewTick){ clearInterval(crewTick); crewTick=null; } }
 let polling=null;
 async function run(){
   let payload, title='showrun — directing…';
@@ -378,7 +399,7 @@ async function run(){
   }
   el('go').disabled=true; el('stage').style.display='block';
   el('result').style.display='none'; el('note').style.display='none'; el('log').innerHTML=''; el('board').innerHTML=''; el('bhead').style.display='none';
-  renderCrew('',[], 'running');
+  _jobStart=Date.now(); el('slate').style.display='flex'; renderCrew('',[], 'running'); startCrewTick();
   el('termtitle').textContent=title; buildPipe();
   el('stage').scrollIntoView({behavior:'smooth',block:'start'});
   let r;
@@ -397,6 +418,7 @@ async function poll(id){
   else if(j.status==='error'){ clearInterval(polling); fail(j.error||'Render failed.'); }
 }
 function done(j){
+  stopCrewTick();
   el('termtitle').textContent='showrun — complete'; markAllDone();
   const f='/jobs/'+j.id+'/film';
   el('film').src=f; el('filmtitle').textContent=j.title||'Your film'; el('dl').href=f;
@@ -404,6 +426,7 @@ function done(j){
   el('result').scrollIntoView({behavior:'smooth',block:'center'});
 }
 function fail(msg){
+  stopCrewTick();
   el('go').disabled=false; const n=el('note'); n.style.display='block';
   const quota=/quota|FreeTier/i.test(msg||'');
   n.innerHTML='<b>'+(quota?'Live video tier paused':'Heads up')+':</b> '+esc(msg)+

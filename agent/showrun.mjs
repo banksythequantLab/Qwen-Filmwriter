@@ -87,12 +87,15 @@ export async function showrun(input, { scenes = 3, source = "logline", maxScenes
     const still = await approvedStill(imgPrompt, { referenceUrl,
       onStep: (a, v, url) => { log(`   ${u.id} still ${a}: pass=${v.pass}`); emit(u.id, { status: v.pass ? "frame" : "drawing", stillUrl: url, attempt: a, pass: v.pass }); } });
     u.stillUrl = still.url;
-    emit(u.id, { status: "frame", stillUrl: still.url });
+    u.blocked = !still.url;
+    if (u.blocked) log(`   ${u.id} still: blocked by content filter — skipping shot`);
+    emit(u.id, { status: still.url ? "frame" : "blocked", stillUrl: still.url });
   });
 
   // ---- PHASE 2: ANIMATE — dispatch videos with bounded concurrency (free-tier safe) ----
   log(`animate: ${units.length} clips (video x${VIDEO_CC} parallel)`);
   await mapLimit(units, VIDEO_CC, async (u) => {
+    if (!u.stillUrl) { emit(u.id, { status: "blocked" }); return; }   // blocked still -> skip, keep the job alive
     emit(u.id, { status: "video_pending" });
     const onTick = (st, s) => { log(`   ${u.id} [${s}s] ${st}`); emit(u.id, { status: st === "SUCCEEDED" ? "clip" : "animating", secs: s }); };
     let clip;
@@ -114,8 +117,9 @@ export async function showrun(input, { scenes = 3, source = "logline", maxScenes
   // ---- PHASE 3: ASSEMBLE — sequential local ffmpeg (EDL + narration + concat) ----
   const sceneClips = [];
   for (const sp of scenesPlan) {
-    const isLong = sp.strategy === "longtake" && sp.shots.length >= 2;
-    const us = units.filter((u) => u.sceneId === sp.scene.id);
+    const us = units.filter((u) => u.sceneId === sp.scene.id && u.clipPath);  // only shots that actually rendered
+    if (!us.length) { log(`  scene ${sp.scene.id}: all shots blocked — skipped`); continue; }
+    const isLong = sp.strategy === "longtake" && us.length >= 2 && us.some((u) => u.role === "spine");
     let sceneFinal;
     if (isLong) {
       const spineU = us.find((u) => u.role === "spine");
@@ -146,6 +150,7 @@ export async function showrun(input, { scenes = 3, source = "logline", maxScenes
     sceneClips.push(sceneFinal);
   }
 
+  if (!sceneClips.length) throw new Error("every shot was blocked by the content filter — try a different passage or logline");
   const finalRaw = path.join(dir, "final_raw.mp4");
   await concat(sceneClips, finalRaw, path.join(dir, "final_concat.txt"));
   const finalPath = path.join(dir, "final.mp4");
