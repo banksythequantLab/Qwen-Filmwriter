@@ -133,8 +133,9 @@ a{color:var(--cyan);text-decoration:none}
 .crew{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
 .mate{position:relative;overflow:hidden;background:linear-gradient(180deg,rgba(28,28,31,.7),rgba(13,13,15,.7));border:1px solid var(--line);border-radius:15px;padding:15px;transition:opacity .4s,border-color .4s,box-shadow .4s,transform .25s;opacity:.42}
 .mate .top{display:flex;align-items:center;gap:12px}
-.mate .av{position:relative;width:44px;height:44px;border-radius:11px;display:grid;place-items:center;background:radial-gradient(circle at 50% 32%,#222226,#0e0e10);border:1px solid var(--line);flex:none;color:var(--faint);transition:.4s}
+.mate .av{position:relative;overflow:hidden;width:44px;height:44px;border-radius:11px;display:grid;place-items:center;background:radial-gradient(circle at 50% 32%,#222226,#0e0e10);border:1px solid var(--line);flex:none;color:var(--faint);transition:.4s}
 .mate .av svg{width:23px;height:23px;stroke:currentColor;fill:none;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
+.mate .av .pf{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
 .mate .meta{min-width:0}
 .mate .nm{font-family:var(--f-disp);font-weight:600;font-size:14.5px;line-height:1.15;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .mate .rl{font-family:var(--f-mono);font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:var(--faint);margin-top:3px}
@@ -395,7 +396,7 @@ function renderCrew(t,panels,status){
       }
       const dot = s==='idle'?'':'<span class="dot"></span>';
       return '<div class="mate '+(s==='idle'?'':s)+'"><span class="badge">'+badge+'</span>'+
-        '<div class="top"><span class="av">'+(ICON[a.id]||'')+'</span>'+
+        '<div class="top"><span class="av">'+(ICON[a.id]||'')+'<img class="pf" src="/crew/'+a.id+'.png?v=1" alt="" onerror="this.remove()"></span>'+
           '<div class="meta"><div class="nm">'+esc(a.nm)+'</div><div class="rl">'+esc(a.rl)+'</div></div></div>'+
         '<div class="say">'+dot+esc(say)+'</div>'+
         (count?'<div class="count">'+esc(count)+'</div>':'')+
