@@ -27,10 +27,10 @@ export async function showrun(input, { scenes = 3, source = "logline", maxScenes
   // Expand: scene -> { strategy, shots(+prompts) }
   const scenesPlan = [];
   for (const scene of p.scenes) {
-    const { strategy, shots } = await shotlist(scene, { style: p.style, characters: p.characters });
+    const { strategy, shots } = await shotlist(scene, { style: p.style, characters: p.characters, title: p.title });
     const entries = [];
     for (const shot of shots) {
-      const prompts = await promptgen(shot, { style: p.style, characters: p.characters, setting: scene.setting });
+      const prompts = await promptgen(shot, { style: p.style, characters: p.characters, setting: scene.setting, beat: scene.beat, intent: scene.intent, title: p.title });
       entries.push({ shot, prompts });
     }
     const strat = forceStrategy || (entries.length >= 2 ? strategy : "montage");
@@ -43,10 +43,12 @@ export async function showrun(input, { scenes = 3, source = "logline", maxScenes
   if (p.characters?.[0]) emit("ref", { scene: 0, label: `Reference · ${p.characters[0].name}`, status: "pending" });
   for (const sp of scenesPlan) {
     const isLong = sp.strategy === "longtake" && sp.shots.length >= 2;
+    const beat = String(sp.scene.beat || "").replace(/\s+/g, " ").trim().slice(0, 52);
+    const lbl = `S${sp.scene.id} · ${beat}`;
     const pans = isLong
-      ? [{ id: `${sp.scene.id}_spine`, label: `S${sp.scene.id} · take` },
-         ...sp.shots.slice(1).map(({ shot }) => ({ id: `s${sp.scene.id}_${shot.id}`, label: `S${sp.scene.id} · cut ${shot.id}` }))]
-      : sp.shots.map(({ shot }) => ({ id: `${sp.scene.id}_${shot.id}`, label: `S${sp.scene.id} · shot ${shot.id}` }));
+      ? [{ id: `${sp.scene.id}_spine`, label: lbl },
+         ...sp.shots.slice(1).map(({ shot }) => ({ id: `s${sp.scene.id}_${shot.id}`, label: lbl }))]
+      : sp.shots.map(({ shot }) => ({ id: `${sp.scene.id}_${shot.id}`, label: lbl }));
     for (const pn of pans) emit(pn.id, { scene: sp.scene.id, label: pn.label, status: "pending" });
   }
   if (!render) return { title: p.title, scenes: scenesPlan.length, storyboard: path.join(dir, "storyboard.json") };
@@ -70,7 +72,7 @@ export async function showrun(input, { scenes = 3, source = "logline", maxScenes
   // ---- PHASE 1: STORYBOARD — generate every still in parallel (capped), board-first ----
   // imageEdit (subject-consistency) has a strict rate quota -> stills sequential by default;
   // video is the slow part and uses a separate quota -> parallelize that. Both env-tunable.
-  const STILL_CC = +(process.env.QWEN_STILL_CC || 1), VIDEO_CC = +(process.env.QWEN_VIDEO_CC || 2);
+  const STILL_CC = +(process.env.QWEN_STILL_CC || 3), VIDEO_CC = +(process.env.QWEN_VIDEO_CC || 3);
   const units = [];
   for (const sp of scenesPlan) {
     const isLong = sp.strategy === "longtake" && sp.shots.length >= 2;

@@ -12,8 +12,8 @@ Rules:
 - duration 2-5s per shot. mode: prefer "i2v"; "t2v" only for complex multi-action.
 - Vary shot TYPE for rhythm. narration/dialogue optional and short. Keep characters consistent.`;
 
-export async function shotlist(scene, { style, characters, model = "qwen-plus" } = {}) {
-  const ctx = `STYLE: ${style}\nCHARACTERS: ${JSON.stringify(characters)}\nSCENE: ${JSON.stringify(scene)}`;
+export async function shotlist(scene, { style, characters, title = "", model = "qwen-plus" } = {}) {
+  const ctx = `FILM: ${title}\nSTYLE: ${style}\nCHARACTERS: ${JSON.stringify(characters)}\nSCENE (this is the story beat to cover): ${JSON.stringify(scene)}`;
   const { text, usage } = await chat(
     [{ role: "system", content: SYS }, { role: "user", content: ctx }],
     { model, temperature: 0.7, max_tokens: 1000 }

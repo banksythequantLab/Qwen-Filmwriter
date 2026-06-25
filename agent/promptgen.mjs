@@ -2,15 +2,17 @@
 import { chat } from "../lib/qwen.mjs";
 import { parseJson } from "./planner.mjs";
 
-const SYS = `You are a prompt engineer for an AI image+video pipeline. Given the film style, characters, scene setting, and ONE shot, craft precise generation prompts.
+const SYS = `You are a prompt engineer for an AI image+video pipeline. Given the film, its style, characters, the STORY BEAT this shot belongs to, the scene setting, and ONE shot, craft precise generation prompts.
 Return STRICT JSON ONLY:
 {"image_prompt": string, "motion_prompt": string}
-- image_prompt: a detailed still-frame prompt. Embed the global style. Describe subject, composition and framing appropriate to the shot type, lighting, lens, and mood. Keep characters visually consistent with their descriptions. Do NOT request any on-screen text or signage.
+- image_prompt: a detailed still-frame prompt that FAITHFULLY depicts THIS shot as a moment inside the story beat — it must advance the narrative, not be a generic stock image. Embed the global style. Describe subject, composition and framing appropriate to the shot type, lighting, lens, and mood.
+- BE CONCRETE AND UNAMBIGUOUS about key objects, vehicles, and locations named in the beat: use the exact noun (e.g. "motorcycle", never the ambiguous "bike"; "skateboard", not "board"; "sedan", not "car" when specified). NEVER substitute a different object than the story specifies.
+- Keep characters visually consistent with their descriptions for continuity across shots. Do NOT request any on-screen text or signage.
 - For close-up and insert shots, use a shallow depth of field with a soft, out-of-focus (bokeh) background, and keep all background signage blurred/unreadable so focus stays on the subject.
 - motion_prompt: concise — what moves in the shot plus the camera move, for animating that still.`;
 
-export async function promptgen(shot, { style, characters, setting, model = "qwen-plus" } = {}) {
-  const ctx = `STYLE: ${style}\nCHARACTERS: ${JSON.stringify(characters)}\nSETTING: ${setting}\nSHOT: ${JSON.stringify(shot)}`;
+export async function promptgen(shot, { style, characters, setting, beat = "", intent = "", title = "", model = "qwen-plus" } = {}) {
+  const ctx = `FILM: ${title}\nSTYLE: ${style}\nCHARACTERS: ${JSON.stringify(characters)}\nSTORY BEAT: ${beat}${intent ? `\nBEAT INTENT: ${intent}` : ""}\nSETTING: ${setting}\nSHOT: ${JSON.stringify(shot)}`;
   const { text, usage } = await chat(
     [{ role: "system", content: SYS }, { role: "user", content: ctx }],
     { model, temperature: 0.8, max_tokens: 600 }

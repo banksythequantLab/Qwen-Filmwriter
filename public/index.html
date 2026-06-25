@@ -8,9 +8,9 @@
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
 <style>
 :root{
-  --bg:#0a0a0b; --bg2:#100e0c; --panel:#16140f; --panel2:#121110; --bar:#1c1915; --line:#2c2823; --line2:#3c362e;
-  --fg:#f3ede2; --dim:#9a9286; --faint:#6a635a;
-  --cyan:#e0a44e; --mag:#d8b27a; --green:#8fb98a; --red:#cf7a6a; --gold:#e0a44e; --amber:#e8b667;
+  --bg:#08080a; --bg2:#0d0d0f; --panel:#121214; --panel2:#0f0f11; --bar:#171719; --line:#262629; --line2:#39393d;
+  --fg:#f4f4f6; --dim:#9b9ba3; --faint:#62626a;
+  --cyan:#ffffff; --mag:#b9b9c2; --green:#e6e6ea; --red:#d2756a; --gold:#ffffff; --amber:#ffffff;
   --f-disp:"Space Grotesk",ui-sans-serif,system-ui,sans-serif;
   --f-body:"Inter",ui-sans-serif,system-ui,"Segoe UI",Roboto,sans-serif;
   --f-mono:"JetBrains Mono",ui-monospace,"Consolas",monospace;
@@ -19,9 +19,9 @@
 html{scroll-behavior:smooth}
 body{margin:0;color:var(--fg);font-family:var(--f-body);font-size:16px;line-height:1.5;-webkit-font-smoothing:antialiased;
   background:
-   radial-gradient(1200px 620px at 50% -8%, rgba(224,164,78,.12), transparent 62%),
-   radial-gradient(1000px 520px at 92% 4%, rgba(216,168,106,.10), transparent 60%),
-   radial-gradient(820px 520px at 4% 16%, rgba(180,150,110,.06), transparent 60%),
+   radial-gradient(1200px 620px at 50% -8%, rgba(255,255,255,.07), transparent 62%),
+   radial-gradient(1000px 520px at 92% 4%, rgba(255,255,255,.04), transparent 60%),
+   radial-gradient(820px 520px at 4% 16%, rgba(255,255,255,.03), transparent 60%),
    var(--bg);
   background-attachment:fixed;}
 body::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:0;
@@ -47,7 +47,7 @@ a{color:var(--cyan);text-decoration:none}
   color:var(--dim);border:1px solid var(--line);border-radius:999px;padding:6px 14px;margin-bottom:24px;background:rgba(255,255,255,.02)}
 .kicker .k{width:6px;height:6px;border-radius:50%;background:var(--cyan);box-shadow:0 0 8px var(--cyan)}
 .hero h1{font-family:var(--f-disp);font-size:66px;line-height:1.0;margin:0;font-weight:700;letter-spacing:-.02em}
-.hero h1 .g{background:linear-gradient(100deg,#f7e9cd,var(--cyan) 42%,var(--mag) 92%);background-size:200% auto;
+.hero h1 .g{background:linear-gradient(100deg,#ffffff,var(--cyan) 42%,var(--mag) 92%);background-size:200% auto;
   -webkit-background-clip:text;background-clip:text;color:transparent}
 @keyframes sheen{to{background-position:200% center}}
 .hero p{color:var(--dim);font-size:18.5px;max-width:660px;margin:18px auto 0;line-height:1.55}
@@ -128,36 +128,37 @@ a{color:var(--cyan);text-decoration:none}
 /* crew — the film unit, a 3x2 slate that lights up + counts the work */
 .slate{display:flex;align-items:center;gap:13px;margin:24px 0 13px}
 .slate .clap{font-family:var(--f-disp);font-weight:700;font-size:12px;letter-spacing:.18em;text-transform:uppercase;color:var(--dim);display:flex;align-items:center;gap:9px;white-space:nowrap}
-.slate .clap b{color:var(--amber);font-weight:700}
-.slate .stripes{flex:1;height:15px;border-radius:3px;background:repeating-linear-gradient(45deg,#211c16 0 12px,#0c0a09 12px 24px);border:1px solid var(--line);opacity:.65}
+.slate .clap b{color:var(--fg);font-weight:700}
+.slate .stripes{flex:1;height:15px;border-radius:3px;background:repeating-linear-gradient(45deg,#1e1e20 0 12px,#0a0a0b 12px 24px);border:1px solid var(--line);opacity:.7}
 .crew{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
-.mate{position:relative;overflow:hidden;background:linear-gradient(180deg,rgba(30,27,22,.72),rgba(14,12,10,.72));border:1px solid var(--line);border-radius:15px;padding:15px;transition:opacity .4s,border-color .4s,box-shadow .4s,transform .25s;opacity:.4}
+.mate{position:relative;overflow:hidden;background:linear-gradient(180deg,rgba(28,28,31,.7),rgba(13,13,15,.7));border:1px solid var(--line);border-radius:15px;padding:15px;transition:opacity .4s,border-color .4s,box-shadow .4s,transform .25s;opacity:.42}
 .mate .top{display:flex;align-items:center;gap:12px}
-.mate .av{position:relative;width:44px;height:44px;border-radius:50%;display:grid;place-items:center;font-size:22px;background:radial-gradient(circle at 50% 32%,#2b2620,#131110);border:1px solid var(--line);flex:none;filter:grayscale(.75) brightness(.78);transition:.4s}
+.mate .av{position:relative;width:44px;height:44px;border-radius:11px;display:grid;place-items:center;background:radial-gradient(circle at 50% 32%,#222226,#0e0e10);border:1px solid var(--line);flex:none;color:var(--faint);transition:.4s}
+.mate .av svg{width:23px;height:23px;stroke:currentColor;fill:none;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
 .mate .meta{min-width:0}
 .mate .nm{font-family:var(--f-disp);font-weight:600;font-size:14.5px;line-height:1.15;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .mate .rl{font-family:var(--f-mono);font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:var(--faint);margin-top:3px}
 .mate .say{margin-top:13px;font-size:11.5px;color:var(--dim);font-family:var(--f-mono);letter-spacing:.02em;display:flex;align-items:center;gap:8px;min-height:16px}
-.mate .dot{width:7px;height:7px;border-radius:50%;flex:none}
+.mate .dot{width:7px;height:7px;border-radius:50%;flex:none;background:var(--faint)}
 .mate .badge{position:absolute;top:14px;right:14px;font-family:var(--f-mono);font-size:8px;letter-spacing:.12em;text-transform:uppercase;color:var(--faint);border:1px solid var(--line);border-radius:20px;padding:3px 8px}
-.mate .count{margin-top:9px;font-family:var(--f-mono);font-size:10.5px;color:var(--amber);letter-spacing:.03em;display:none}
+.mate .count{margin-top:9px;font-family:var(--f-mono);font-size:10.5px;color:var(--fg);letter-spacing:.03em;display:none}
 .mate .prog{position:absolute;left:0;right:0;bottom:0;height:3px;overflow:hidden}
-.mate .prog::before{content:"";position:absolute;top:0;left:-42%;width:42%;height:100%;background:linear-gradient(90deg,transparent,var(--amber),transparent);animation:sweep 1.25s linear infinite;display:none}
-.mate.active{opacity:1;border-color:rgba(224,164,78,.6);box-shadow:0 0 0 1px rgba(224,164,78,.16),0 18px 42px rgba(0,0,0,.5);transform:translateY(-3px)}
-.mate.active .av{filter:none;border-color:rgba(224,164,78,.6);box-shadow:0 0 24px rgba(224,164,78,.34)}
+.mate .prog::before{content:"";position:absolute;top:0;left:-42%;width:42%;height:100%;background:linear-gradient(90deg,transparent,#fff,transparent);animation:sweep 1.25s linear infinite;display:none}
+.mate.active{opacity:1;border-color:rgba(255,255,255,.55);box-shadow:0 0 0 1px rgba(255,255,255,.14),0 18px 42px rgba(0,0,0,.55);transform:translateY(-3px)}
+.mate.active .av{color:#fff;border-color:rgba(255,255,255,.5);box-shadow:0 0 22px rgba(255,255,255,.16)}
 .mate.active .say{color:var(--fg)}
-.mate.active .badge{color:#0c0a09;background:var(--amber);border-color:var(--amber);font-weight:700}
+.mate.active .badge{color:#0a0a0b;background:#fff;border-color:#fff;font-weight:700}
 .mate.active .count{display:block}
 .mate.active .prog::before{display:block}
-.mate.active .dot{background:var(--amber);box-shadow:0 0 9px var(--amber);animation:pulse 1.3s ease-in-out infinite}
-.mate.done{opacity:.78}
-.mate.done .av{filter:none;opacity:.92}
-.mate.done .badge{color:var(--green);border-color:rgba(143,185,138,.5)}
-.mate.done .dot{background:var(--green)}
-.mate.flag{opacity:1;border-color:rgba(207,122,106,.6);box-shadow:0 0 0 1px rgba(207,122,106,.16)}
-.mate.flag .av{filter:none;border-color:rgba(207,122,106,.6);box-shadow:0 0 22px rgba(207,122,106,.3)}
-.mate.flag .badge{color:#fff;background:var(--red);border-color:var(--red);font-weight:700}
-.mate.flag .say{color:#e7b3a8}
+.mate.active .dot{background:#fff;box-shadow:0 0 9px rgba(255,255,255,.7);animation:pulse 1.3s ease-in-out infinite}
+.mate.done{opacity:.8}
+.mate.done .av{color:var(--dim)}
+.mate.done .badge{color:var(--fg);border-color:var(--line2)}
+.mate.done .dot{background:var(--fg)}
+.mate.flag{opacity:1;border-color:rgba(210,117,106,.65);box-shadow:0 0 0 1px rgba(210,117,106,.16)}
+.mate.flag .av{color:var(--red);border-color:rgba(210,117,106,.6);box-shadow:0 0 20px rgba(210,117,106,.25)}
+.mate.flag .badge{color:#0a0a0b;background:var(--red);border-color:var(--red);font-weight:700}
+.mate.flag .say{color:#e2a59c}
 .mate.flag .dot{background:var(--red);box-shadow:0 0 9px var(--red);animation:pulse .9s ease-in-out infinite}
 @keyframes sweep{to{left:140%}}
 @media(max-width:640px){.crew{grid-template-columns:1fr 1fr}.mate .rl{display:none}}
@@ -196,7 +197,17 @@ a{color:var(--cyan);text-decoration:none}
 .models{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin:16px 0}
 .models span{border:1px solid var(--line);border-radius:999px;padding:5px 12px;color:var(--dim);transition:.18s}
 .models span:hover{border-color:var(--cyan);color:var(--fg)}
-@media(max-width:760px){.hero h1{font-size:40px}.hero p{font-size:16px}.grid{grid-template-columns:1fr}.composer{padding:16px}.go{padding:13px 20px}.bhead .leg{display:none}}
+/* single input + scene slider */
+#story{min-height:104px}
+.scenectl{display:flex;align-items:center;gap:12px;flex:1;min-width:0}
+.scenectl .hint{margin:0;white-space:nowrap}
+#scenes{-webkit-appearance:none;appearance:none;flex:1;min-width:90px;height:4px;border-radius:4px;background:var(--line2);outline:none;cursor:pointer}
+#scenes::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;width:18px;height:18px;border-radius:50%;background:#fff;border:2px solid #0a0a0b;box-shadow:0 0 0 1px #fff,0 2px 8px rgba(0,0,0,.6);cursor:pointer;transition:transform .1s}
+#scenes::-webkit-slider-thumb:hover{transform:scale(1.12)}
+#scenes::-moz-range-thumb{width:16px;height:16px;border-radius:50%;background:#fff;border:2px solid #0a0a0b;box-shadow:0 0 0 1px #fff;cursor:pointer}
+#scenes::-moz-range-track{height:4px;border-radius:4px;background:var(--line2)}
+.scnum{font-family:var(--f-mono);font-weight:600;font-size:15px;color:var(--fg);min-width:34px;text-align:center;border:1px solid var(--line2);border-radius:8px;padding:4px 8px}
+@media(max-width:760px){.hero h1{font-size:40px}.hero p{font-size:16px}.grid{grid-template-columns:1fr}.composer{padding:16px}.go{padding:13px 20px}.bhead .leg{display:none}.scenectl{width:100%}.row{flex-wrap:wrap}}
 </style></head>
 <body>
 <div class="wrap">
@@ -218,19 +229,12 @@ a{color:var(--cyan);text-decoration:none}
   </div>
 
   <div class="composer">
-    <div class="seg modes" id="modes">
-      <button data-mode="logline" class="on">Logline</button><button data-mode="chapter">Chapter</button>
-    </div>
-    <textarea id="logline" placeholder="A lonely android busker in a neon megacity discovers it can dream."></textarea>
-    <textarea id="chapter" class="tall" style="display:none" placeholder="Paste a whole chapter or passage from a book. Filmwriter reads it and adapts it faithfully into as many scenes as the story needs — characters, events, and order preserved."></textarea>
+    <textarea id="story" placeholder="Type a logline — or paste a whole chapter. Filmwriter figures out which and adapts it into a film."></textarea>
     <div class="row">
-      <span class="hint" id="scenelabel" style="margin:0">Scenes</span>
-      <div class="seg" id="scenes">
-        <button data-n="1">1</button><button data-n="2">2</button>
-        <button data-n="3" class="on">3</button><button data-n="4">4</button><button data-n="5">5</button>
-      </div>
-      <div class="seg" id="maxscenes" style="display:none">
-        <button data-n="12">12</button><button data-n="24" class="on">24</button><button data-n="36">36</button><button data-n="48">48</button><button data-n="60">60</button>
+      <div class="scenectl">
+        <span class="hint">Scenes</span>
+        <input type="range" id="scenes" min="1" max="100" step="1" value="12">
+        <span class="scnum" id="scnum">12</span>
       </div>
       <button class="go" id="go">Direct my film →</button>
     </div>
@@ -326,6 +330,15 @@ function renderBoard(panels){
   }).join('');
 }
 // ---- the crew: a named film unit that lights up + counts the work ----
+const ICON={
+ show:'<svg viewBox="0 0 24 24"><path d="M3 10h18v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z"/><path d="M3 10l1.6-4h3l-1.6 4M9 10l1.6-4h3l-1.6 4M15 10l1.6-4h3l-1.6 4"/></svg>',
+ write:'<svg viewBox="0 0 24 24"><path d="M14 4H5a1 1 0 0 0-1 1v14a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1V9z"/><path d="M14 4v5h5"/><path d="M8 13h6M8 16.5h4"/></svg>',
+ board:'<svg viewBox="0 0 24 24"><rect x="3" y="4" width="8" height="7" rx="1"/><rect x="13" y="4" width="8" height="7" rx="1"/><rect x="3" y="13" width="8" height="7" rx="1"/><rect x="13" y="13" width="8" height="7" rx="1"/></svg>',
+ cont:'<svg viewBox="0 0 24 24"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg>',
+ legal:'<svg viewBox="0 0 24 24"><path d="M12 3l7 3v5c0 5-3.4 8.6-7 10-3.6-1.4-7-5-7-10V6z"/><path d="M9 12l2 2 4-4"/></svg>',
+ shoot:'<svg viewBox="0 0 24 24"><rect x="2.5" y="7" width="13" height="10" rx="1.5"/><path d="M15.5 10.5l6-3v9l-6-3z"/><circle cx="6" cy="4.6" r="1.3"/><circle cx="10" cy="4.6" r="1.3"/></svg>',
+ edit:'<svg viewBox="0 0 24 24"><circle cx="6" cy="6" r="2.3"/><circle cx="6" cy="18" r="2.3"/><path d="M8 7.4l12 9.2M8 16.6L20 7.4"/></svg>',
+};
 const CREW=[
  {id:'show', av:'🎬', nm:'The Showrunner', rl:'Director',     act:'Calling the shots',  idle:'Standing by', done:"That's the picture"},
  {id:'write',av:'✍️', nm:'Margot Penn',    rl:'Screenwriter', act:'Writing the script', idle:'Standing by', done:'Script locked'},
@@ -379,7 +392,7 @@ function renderCrew(t,panels,status){
       }
       const dot = s==='idle'?'':'<span class="dot"></span>';
       return '<div class="mate '+(s==='idle'?'':s)+'"><span class="badge">'+badge+'</span>'+
-        '<div class="top"><span class="av">'+a.av+'</span>'+
+        '<div class="top"><span class="av">'+(ICON[a.id]||'')+'</span>'+
           '<div class="meta"><div class="nm">'+esc(a.nm)+'</div><div class="rl">'+esc(a.rl)+'</div></div></div>'+
         '<div class="say">'+dot+esc(say)+'</div>'+
         (count?'<div class="count">'+esc(count)+'</div>':'')+
@@ -391,16 +404,11 @@ function startCrewTick(){ stopCrewTick(); crewTick=setInterval(()=>{ if(_crewCac
 function stopCrewTick(){ if(crewTick){ clearInterval(crewTick); crewTick=null; } }
 let polling=null;
 async function run(){
-  let payload, title='showrun — directing…';
-  if(mode==='chapter'){
-    const chapter=el('chapter').value.trim();
-    if(!chapter) return fail('Paste a chapter or passage first.');
-    payload={chapter,maxScenes:+document.querySelector('#maxscenes .on').dataset.n};
-    title='showrun — adapting chapter…';
-  } else {
-    payload={logline:(el('logline').value.trim()||el('logline').placeholder),
-             scenes:+document.querySelector('#scenes .on').dataset.n};
-  }
+  const text=(el('story').value.trim()||el('story').placeholder);
+  const n=Math.max(1,+el('scenes').value||12);
+  const isChapter = text.length>240 || text.split(/\s+/).length>45;   // long prose => adapt faithfully; a short line => logline
+  const payload = isChapter ? {chapter:text, maxScenes:n} : {logline:text, scenes:n};
+  const title = isChapter ? 'showrun — adapting…' : 'showrun — directing…';
   el('go').disabled=true; el('stage').style.display='block';
   el('result').style.display='none'; el('note').style.display='none'; el('log').innerHTML=''; el('board').innerHTML=''; el('bhead').style.display='none';
   _jobStart=Date.now(); el('slate').style.display='flex'; renderCrew('',[], 'running'); startCrewTick();
@@ -446,24 +454,10 @@ async function loadGallery(){
   ).join('')||'<p class="sub">No films yet — direct one above.</p>';
 }
 el('chips').innerHTML=EX.map(t=>'<span class="chip">'+esc(t)+'</span>').join('');
-el('chips').onclick=e=>{ if(e.target.classList.contains('chip')){ setMode('logline'); el('logline').value=e.target.textContent; } };
-const segPick=(box,t)=>{ if(t.dataset.n){ [...box.children].forEach(b=>b.classList.remove('on')); t.classList.add('on'); } };
-el('scenes').onclick=e=>segPick(el('scenes'),e.target);
-el('maxscenes').onclick=e=>segPick(el('maxscenes'),e.target);
-let mode='logline';
-function setMode(m){ mode=m;
-  [...el('modes').children].forEach(b=>b.classList.toggle('on',b.dataset.mode===m));
-  el('logline').style.display=m==='logline'?'':'none';
-  el('chapter').style.display=m==='chapter'?'':'none';
-  el('scenes').style.display=m==='logline'?'':'none';
-  el('maxscenes').style.display=m==='chapter'?'':'none';
-  el('scenelabel').textContent=m==='logline'?'Scenes':'Max scenes';
-  el('go').textContent=m==='logline'?'Direct my film →':'Adapt this chapter →';
-}
-el('modes').onclick=e=>{ const b=e.target.closest('button'); if(b&&b.dataset.mode) setMode(b.dataset.mode); };
+el('chips').onclick=e=>{ if(e.target.classList.contains('chip')){ el('story').value=e.target.textContent; el('story').focus(); } };
+el('scenes').addEventListener('input',()=>{ el('scnum').textContent=el('scenes').value; });
 el('go').onclick=run;
-el('logline').addEventListener('keydown',e=>{ if((e.metaKey||e.ctrlKey)&&e.key==='Enter') run(); });
-el('chapter').addEventListener('keydown',e=>{ if((e.metaKey||e.ctrlKey)&&e.key==='Enter') run(); });
+el('story').addEventListener('keydown',e=>{ if((e.metaKey||e.ctrlKey)&&e.key==='Enter') run(); });
 fetch('/api').then(x=>x.json()).then(()=>el('health').textContent='live').catch(()=>{el('health').textContent='offline';el('health').previousElementSibling.style.background='#e87878';});
 buildPipe(); loadGallery();
 el('hero')&&el('hero').addEventListener('error',()=>el('reel')&&el('reel').classList.add('hide'));
