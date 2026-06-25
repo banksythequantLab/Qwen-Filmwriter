@@ -331,6 +331,7 @@ const CREW=[
  {id:'write',av:'✍️', nm:'Margot Penn',    rl:'Screenwriter', act:'Writing the script', idle:'Standing by', done:'Script locked'},
  {id:'board',av:'🎨', nm:'Vee Dax',        rl:'Storyboard',   act:'Drawing the boards', idle:'Standing by', done:'Boards complete'},
  {id:'cont', av:'👁️', nm:'Iris Calder',    rl:'Continuity',   act:'Checking every frame', idle:'Standing by', done:'Continuity approved', flag:'Reshoot — a detail drifted'},
+ {id:'legal',av:'⚖️', nm:'Avery Sloan',    rl:'Legal · Clearances', act:'Clearing rights & text', idle:'Standing by', done:'Cleared for release', flag:'Infringement — reroll ordered'},
  {id:'shoot',av:'🎥', nm:'Sergio Ray',     rl:'Cinematographer', act:'Rolling camera',  idle:'Standing by', done:'Footage in the can'},
  {id:'edit', av:'🎞️', nm:'Max Cutter',     rl:'Editor',       act:'Cutting the picture', idle:'Standing by', done:"That's a wrap"},
 ];
@@ -343,11 +344,13 @@ function crewStates(t,panels,status){
   const editing=has(/EDL|FINAL CUT/), done=status==='done'||has(/FINAL CUT/);
   let ph=0; if(wrote)ph=1; if(boarding)ph=2; if(qa)ph=3; if(animating)ph=4; if(editing)ph=5; if(done)ph=6;
   const m=t.match(/pass=(true|false)(?![\s\S]*pass=(?:true|false))/); const lastFail=!!(m&&m[1]==='false');
+  const lm=t.match(/legal \d+: (clear|FLAG)(?![\s\S]*legal \d+: (?:clear|FLAG))/); const legalFlag=!!(lm&&lm[1]==='FLAG');
   return {scenes,total,stills,clips,
     show: done?'done':'active',
     write: ph>=1?'done':'active',
     board: ph>=3?'done':(ph>=1?'active':'idle'),
     cont:  ph>=4?'done':(ph===3?(lastFail?'flag':'active'):'idle'),
+    legal: ph>=4?'done':(ph===3?(legalFlag?'flag':'active'):'idle'),
     shoot: ph>=5?'done':(ph===4?'active':'idle'),
     edit:  ph>=6?'done':(ph===5?'active':'idle')};
 }
@@ -367,6 +370,7 @@ function renderCrew(t,panels,status){
       let count='';
       if(s==='active'){
         if(a.id==='board'||a.id==='cont') count=st.stills+' / '+(st.total||'…')+' frames';
+        else if(a.id==='legal') count=st.stills+' / '+(st.total||'…')+' cleared';
         else if(a.id==='shoot') count=st.clips+' / '+(st.total||'…')+' shots';
         else if(a.id==='edit') count='assembling cut';
         else if(a.id==='write') count='breaking story';

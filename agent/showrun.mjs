@@ -59,7 +59,9 @@ export async function showrun(input, { scenes = 3, source = "logline", maxScenes
     emit("ref", { status: "drawing" });
     const ref = await approvedStill(
       `Character model sheet of ${lead.name}: ${lead.description}. ${p.style}. Front view, head and shoulders, on a clean pure white seamless studio background, soft even lighting, subtle contact shadow only, no text.`,
-      { size: "1328*1328", maxRetries: 1, onStep: (a, v, url) => { log(`   ref still ${a}: pass=${v.pass}`); emit("ref", { status: v.pass ? "frame" : "drawing", stillUrl: url, attempt: a, pass: v.pass }); } });
+      { size: "1328*1328", maxRetries: 1,
+        onStep: (a, v, url) => { log(`   ref still ${a}: pass=${v.pass}`); emit("ref", { status: v.pass ? "frame" : "drawing", stillUrl: url, attempt: a, pass: v.pass }); },
+        onLegal: (a, lv) => log(`   ref legal ${a}: ${lv.pass ? "clear" : "FLAG " + (lv.ip_issue || lv.text_issue || "issue")}`) });
     referenceUrl = ref.url;
     emit("ref", { status: "frame", stillUrl: ref.url });
     if (referenceUrl) await download(referenceUrl, path.join(dir, "character_ref.png"));
@@ -85,7 +87,8 @@ export async function showrun(input, { scenes = 3, source = "logline", maxScenes
   await mapLimit(units, STILL_CC, async (u) => {
     const imgPrompt = `${u.prompts.image_prompt}. Overall style: ${p.style}`;
     const still = await approvedStill(imgPrompt, { referenceUrl,
-      onStep: (a, v, url) => { log(`   ${u.id} still ${a}: pass=${v.pass}`); emit(u.id, { status: v.pass ? "frame" : "drawing", stillUrl: url, attempt: a, pass: v.pass }); } });
+      onStep: (a, v, url) => { log(`   ${u.id} still ${a}: pass=${v.pass}`); emit(u.id, { status: v.pass ? "frame" : "drawing", stillUrl: url, attempt: a, pass: v.pass }); },
+      onLegal: (a, lv) => { log(`   ${u.id} legal ${a}: ${lv.pass ? "clear" : "FLAG " + (lv.ip_issue || lv.text_issue || "issue")}`); emit(u.id, { legal: lv.pass ? "clear" : "flag" }); } });
     u.stillUrl = still.url;
     u.blocked = !still.url;
     if (u.blocked) log(`   ${u.id} still: blocked by content filter — skipping shot`);
