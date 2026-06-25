@@ -396,7 +396,7 @@ function renderCrew(t,panels,status){
       }
       const dot = s==='idle'?'':'<span class="dot"></span>';
       return '<div class="mate '+(s==='idle'?'':s)+'"><span class="badge">'+badge+'</span>'+
-        '<div class="top"><span class="av">'+(ICON[a.id]||'')+'<img class="pf" src="/crew/'+a.id+'.png?v=1" alt="" onerror="this.remove()"></span>'+
+        '<div class="top"><span class="av">'+(ICON[a.id]||'')+'<img class="pf" src="/crew/'+a.id+'.png?v=2" alt="" onerror="this.remove()"></span>'+
           '<div class="meta"><div class="nm">'+esc(a.nm)+'</div><div class="rl">'+esc(a.rl)+'</div></div></div>'+
         '<div class="say">'+dot+esc(say)+'</div>'+
         (count?'<div class="count">'+esc(count)+'</div>':'')+
