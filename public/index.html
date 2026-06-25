@@ -231,6 +231,9 @@ a{color:var(--cyan);text-decoration:none}
   <div class="composer">
     <textarea id="story" placeholder="Type a logline — or paste a whole chapter. Filmwriter figures out which and adapts it into a film."></textarea>
     <div class="row">
+      <div class="seg" id="aspect">
+        <button data-a="16:9" class="on">16:9</button><button data-a="1:1">1:1</button><button data-a="9:16">9:16</button>
+      </div>
       <div class="scenectl">
         <span class="hint">Scenes</span>
         <input type="range" id="scenes" min="1" max="100" step="1" value="12">
@@ -407,7 +410,8 @@ async function run(){
   const text=(el('story').value.trim()||el('story').placeholder);
   const n=Math.max(1,+el('scenes').value||12);
   const isChapter = text.length>240 || text.split(/\s+/).length>45;   // long prose => adapt faithfully; a short line => logline
-  const payload = isChapter ? {chapter:text, maxScenes:n} : {logline:text, scenes:n};
+  const aspect=(document.querySelector('#aspect .on')||{dataset:{}}).dataset.a||'16:9';
+  const payload = isChapter ? {chapter:text, maxScenes:n, aspect} : {logline:text, scenes:n, aspect};
   const title = isChapter ? 'showrun — adapting…' : 'showrun — directing…';
   el('go').disabled=true; el('stage').style.display='block';
   el('result').style.display='none'; el('note').style.display='none'; el('log').innerHTML=''; el('board').innerHTML=''; el('bhead').style.display='none';
@@ -456,6 +460,7 @@ async function loadGallery(){
 el('chips').innerHTML=EX.map(t=>'<span class="chip">'+esc(t)+'</span>').join('');
 el('chips').onclick=e=>{ if(e.target.classList.contains('chip')){ el('story').value=e.target.textContent; el('story').focus(); } };
 el('scenes').addEventListener('input',()=>{ el('scnum').textContent=el('scenes').value; });
+el('aspect').onclick=e=>{ const b=e.target.closest('button'); if(b&&b.dataset.a){ [...el('aspect').children].forEach(x=>x.classList.remove('on')); b.classList.add('on'); } };
 el('go').onclick=run;
 el('story').addEventListener('keydown',e=>{ if((e.metaKey||e.ctrlKey)&&e.key==='Enter') run(); });
 fetch('/api').then(x=>x.json()).then(()=>el('health').textContent='live').catch(()=>{el('health').textContent='offline';el('health').previousElementSibling.style.background='#e87878';});

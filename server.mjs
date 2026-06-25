@@ -34,13 +34,13 @@ function streamMp4(req, res, file) {
   if (req.method === "HEAD") return res.end();
   createReadStream(file).pipe(res);
 }
-function startJob(input, { source = "logline", scenes = 3, maxScenes = 24 } = {}) {
+function startJob(input, { source = "logline", scenes = 3, maxScenes = 24, aspect = "16:9" } = {}) {
   const id = randomUUID().slice(0, 8);
   const preview = source === "chapter" ? input.replace(/\s+/g, " ").slice(0, 140) + "…" : input;
-  const job = { id, status: "running", log: [], input: preview, source, scenes, title: null, finalPath: null, error: null, panels: {}, created: Date.now() };
+  const job = { id, status: "running", log: [], input: preview, source, scenes, aspect, title: null, finalPath: null, error: null, panels: {}, created: Date.now() };
   jobs.set(id, job);
   const onEvent = (e) => { if (e && e.id) job.panels[e.id] = { ...(job.panels[e.id] || {}), ...e }; };
-  showrun(input, { source, scenes, maxScenes, outDir: path.join("output/jobs", id), log: (m) => job.log.push(String(m)), onEvent })
+  showrun(input, { source, scenes, maxScenes, aspect, outDir: path.join("output/jobs", id), log: (m) => job.log.push(String(m)), onEvent })
     .then((r) => { job.status = "done"; job.finalPath = r.finalPath; job.title = r.title; })
     .catch((e) => { job.status = "error"; job.error = e.message; });
   return job;
@@ -72,15 +72,17 @@ const server = createServer(async (req, res) => {
   }
 
   if (req.method === "POST" && p[0] === "showrun") {
-    const { logline, chapter, scenes = 3, maxScenes = 24 } = await body(req);
+    const { logline, chapter, scenes = 3, maxScenes = 24, aspect = "16:9" } = await body(req);
     const input = (chapter && String(chapter).trim()) || logline;
     if (!input) return json(res, 400, { error: "logline or chapter required" });
     const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, Number(v) || lo));
+    const ASPECTS = ["16:9", "9:16", "1:1", "4:3", "3:4"];
     const isChapter = !!(chapter && String(chapter).trim());
     const job = startJob(input, {
       source: isChapter ? "chapter" : "logline",
       scenes: clamp(scenes, 1, 100),
       maxScenes: clamp(maxScenes, 1, 100),
+      aspect: ASPECTS.includes(aspect) ? aspect : "16:9",
     });
     return json(res, 202, { jobId: job.id, status: job.status, poll: `/jobs/${job.id}` });
   }

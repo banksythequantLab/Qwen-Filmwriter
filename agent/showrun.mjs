@@ -12,10 +12,12 @@ import { editorPlan, assembleEdit } from "./editor.mjs";
 import { buildSegment, concat, finalize } from "./stitch.mjs";
 import { video, download } from "../lib/qwen.mjs";
 
-export async function showrun(input, { scenes = 3, source = "logline", maxScenes = 24, outDir = "output/film", render = true, forceStrategy, voiceover = false, log = console.log, onEvent = () => {} } = {}) {
+export async function showrun(input, { scenes = 3, source = "logline", maxScenes = 24, aspect = "16:9", outDir = "output/film", render = true, forceStrategy, voiceover = false, log = console.log, onEvent = () => {} } = {}) {
   const dir = path.resolve(outDir);
   mkdirSync(dir, { recursive: true });
   const emit = (id, patch) => { try { onEvent({ id, ...patch }); } catch {} };
+  const STILL_SIZE = { "16:9": "1664*928", "9:16": "928*1664", "1:1": "1328*1328", "4:3": "1472*1104", "3:4": "1104*1472" }[aspect] || "1664*928";
+  const VIDEO_SIZE = { "16:9": "1280*720", "9:16": "720*1280", "1:1": "960*960", "4:3": "1280*960", "3:4": "960*1280" }[aspect] || "1280*720";
   const preview = source === "chapter" ? input.replace(/\s+/g, " ").slice(0, 90) + "…" : `"${input}"`;
   log(`\n== SHOWRUN ==\n${preview}`);
 
@@ -88,7 +90,7 @@ export async function showrun(input, { scenes = 3, source = "logline", maxScenes
   log(`storyboard: ${units.length} panels (stills x${STILL_CC} parallel)`);
   await mapLimit(units, STILL_CC, async (u) => {
     const imgPrompt = `${u.prompts.image_prompt}. Overall style: ${p.style}`;
-    const still = await approvedStill(imgPrompt, { referenceUrl,
+    const still = await approvedStill(imgPrompt, { referenceUrl, size: STILL_SIZE,
       onStep: (a, v, url) => { log(`   ${u.id} still ${a}: pass=${v.pass}`); emit(u.id, { status: v.pass ? "frame" : "drawing", stillUrl: url, attempt: a, pass: v.pass }); },
       onLegal: (a, lv) => { log(`   ${u.id} legal ${a}: ${lv.pass ? "clear" : "FLAG " + (lv.ip_issue || lv.text_issue || "issue")}`); emit(u.id, { legal: lv.pass ? "clear" : "flag" }); } });
     u.stillUrl = still.url;
@@ -112,7 +114,7 @@ export async function showrun(input, { scenes = 3, source = "logline", maxScenes
         { imageUrl: u.stillUrl, resolution: "720P", duration: u.shot.duration, onTick });
     } else {
       clip = await video(`${u.prompts.image_prompt}. Overall style: ${p.style}. ${u.prompts.motion_prompt || ""}`.trim(),
-        { size: "1280*720", shot_type: "multi", onTick });
+        { size: VIDEO_SIZE, shot_type: "multi", onTick });
     }
     emit(u.id, { status: "clip" });
     u.clipPath = path.join(dir, `clip_${u.id}.mp4`);
