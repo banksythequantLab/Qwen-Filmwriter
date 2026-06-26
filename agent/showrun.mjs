@@ -10,7 +10,7 @@ import { approvedStill } from "./visualQA.mjs";
 import { voiceForShot, voiceForScene } from "./voice.mjs";
 import { editorPlan, assembleEdit } from "./editor.mjs";
 import { buildSegment, concat, finalize } from "./stitch.mjs";
-import { video, download } from "../lib/qwen.mjs";
+import { video, keyframeVideo, download } from "../lib/qwen.mjs";
 import { architect, storyReview, contradictionCheck, replanBeats, identityReview } from "./story.mjs";
 import { buildState, stateForScene, lockedFacts } from "./state.mjs";
 import { throughline } from "./throughline.mjs";
@@ -248,15 +248,32 @@ export async function showrun(input, { scenes = 3, source = "logline", maxScenes
   } catch (e) { log(`story-review: error — ${e.message}`); }
 
   // ---- PHASE 2: ANIMATE — dispatch videos with bounded concurrency (free-tier safe) ----
-  log(`animate: ${units.length} clips (video x${VIDEO_CC} parallel)`);
+  // Longtake spine shots are keyframe-anchored: use the scene's first cutaway still as the "last
+  // frame" so the take interpolates toward a real second composition (steadier than first-frame i2v).
+  const lastFrameForScene = new Map();
+  for (const u of units) { if (u.role === "cutaway" && u.stillUrl && !lastFrameForScene.has(u.sceneId)) lastFrameForScene.set(u.sceneId, u.stillUrl); }
+  const KEYFRAME = process.env.QWEN_KEYFRAME !== "0";
+  log(`animate: ${units.length} clips (video x${VIDEO_CC} parallel)${KEYFRAME ? " · keyframe spine takes" : ""}`);
   await mapLimit(units, VIDEO_CC, async (u) => {
     if (!u.stillUrl) { emit(u.id, { status: "blocked" }); return; }   // blocked still -> skip, keep the job alive
     emit(u.id, { status: "video_pending" });
     const onTick = (st, s) => { log(`   ${u.id} [${s}s] ${st}`); emit(u.id, { status: st === "SUCCEEDED" ? "clip" : "animating", secs: s }); };
     let clip;
     if (u.role === "spine") {
-      clip = await video(u.prompts.motion_prompt || "slow cinematic camera move, continuous flowing take",
+      const lastUrl = lastFrameForScene.get(u.sceneId);
+      const i2vSpine = () => video(u.prompts.motion_prompt || "slow cinematic camera move, continuous flowing take",
         { imageUrl: u.stillUrl, resolution: "720P", shot_type: "multi", duration: u.takeDur, onTick });
+      if (KEYFRAME && lastUrl && lastUrl !== u.stillUrl) {
+        try {
+          clip = await keyframeVideo(u.stillUrl, lastUrl, u.prompts.motion_prompt || "smooth continuous cinematic camera move, single flowing take", { resolution: "720P", onTick });
+          log(`   ${u.id} keyframe take (first→last)`);
+        } catch (e) {
+          log(`   ${u.id} keyframe failed (${e.message.slice(0, 50)}) — i2v fallback`);
+          clip = await i2vSpine();
+        }
+      } else {
+        clip = await i2vSpine();
+      }
     } else if (u.role === "cutaway" || u.shot.mode === "i2v") {
       clip = await video(u.prompts.motion_prompt || "subtle natural motion, slow cinematic camera move",
         { imageUrl: u.stillUrl, resolution: "720P", duration: u.shot.duration, onTick });
