@@ -36,10 +36,34 @@ export function parseJson(text) {
   const stripped = String(text).replace(/^```(?:json)?/i, "").replace(/```\s*$/i, "").trim();
   try { return JSON.parse(stripped); }
   catch {
+    // First, pull the first BALANCED {...} object — robust to trailing prose or a
+    // second stray object after the JSON (which a greedy match would swallow and choke on).
+    const block = firstJsonObject(stripped);
+    if (block) { try { return JSON.parse(block); } catch {} }
+    // Last resort: legacy greedy span.
     const m = stripped.match(/\{[\s\S]*\}/);
-    if (!m) throw new Error("model did not return JSON:\n" + String(text).slice(0, 300));
-    return JSON.parse(m[0]);
+    if (m) { try { return JSON.parse(m[0]); } catch {} }
+    throw new Error("model did not return JSON:\n" + String(text).slice(0, 300));
   }
+}
+
+// Walk the string and return the first complete, brace-balanced object, honoring
+// string literals and escapes so braces inside strings don't miscount.
+function firstJsonObject(s) {
+  const start = s.indexOf("{");
+  if (start < 0) return null;
+  let depth = 0, inStr = false, esc = false;
+  for (let i = start; i < s.length; i++) {
+    const c = s[i];
+    if (inStr) {
+      if (esc) esc = false;
+      else if (c === "\\") esc = true;
+      else if (c === '"') inStr = false;
+    } else if (c === '"') inStr = true;
+    else if (c === "{") depth++;
+    else if (c === "}") { if (--depth === 0) return s.slice(start, i + 1); }
+  }
+  return null;
 }
 
 // adapt() — turn a passage of prose (e.g. a book chapter) into an ORDERED, faithful scene plan.

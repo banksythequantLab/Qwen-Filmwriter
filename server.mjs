@@ -11,6 +11,10 @@ const jobs = new Map();
 
 // Pre-rendered showcase films (so the hosted site is alive even when live render is paused).
 const GALLERY = [
+  { id: "station-escape", title: "Station Escape",          tag: "sci-fi action", file: "output/jobs/00c15d08/final.mp4" },
+  { id: "neon-chase",     title: "Neon Chase",              tag: "action",        file: "output/jobs/c4eacbdf/final.mp4" },
+  { id: "one-last-case",  title: "One Last Case",           tag: "noir",          file: "output/jobs/9bdf74c0/final.mp4" },
+  { id: "the-comet",      title: "The Comet",               tag: "drama",         file: "output/jobs/dbe660c3/final.mp4" },
   { id: "neon-melancholia", title: "Neon Melancholia", tag: "long-take", file: "output/longtake_demo/final.mp4" },
   { id: "dreams-of-neon",   title: "Dreams of Neon",   tag: "continuity", file: "output/continuity_film/final.mp4" },
   { id: "dreams-montage",   title: "Dreams of Neon (montage)", tag: "montage", file: "output/film/final.mp4" },
