@@ -125,7 +125,26 @@ a{color:var(--fg);text-decoration:none}
 .foot a{color:var(--dim);text-decoration:underline;text-underline-offset:3px}
 .foot a:hover{color:var(--fg)}
 
-@media(max-width:820px){.hero h1{font-size:44px}.cards{grid-template-columns:1fr}.unit{grid-template-columns:1fr 1fr}.band{grid-template-columns:1fr 1fr}.strip .perf{grid-template-columns:repeat(3,1fr)}.sec h2{font-size:24px}.close h2{font-size:26px}}
+/* real frames in the hero strip */
+.strip .frame img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block}
+.strip .frame b{display:none}
+
+/* stills gallery — real frames the unit has directed */
+.gallery{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:28px}
+.gallery figure{margin:0;position:relative;aspect-ratio:16/9;border:1px solid var(--line);border-radius:12px;overflow:hidden;background:#0c0c0e;transition:transform .2s,border-color .25s,box-shadow .25s}
+.gallery figure:hover{transform:translateY(-3px);border-color:var(--line2);box-shadow:0 16px 36px rgba(0,0,0,.5)}
+.gallery img{width:100%;height:100%;object-fit:cover;display:block;transition:transform .5s}
+.gallery figure:hover img{transform:scale(1.05)}
+.gallery figcaption{position:absolute;left:0;right:0;bottom:0;padding:18px 10px 8px;font:600 10.5px/1.2 var(--f-mono);letter-spacing:.06em;text-transform:uppercase;color:#d8d8de;background:linear-gradient(180deg,transparent,rgba(0,0,0,.82))}
+
+/* motion reel — live autoplaying clips from the app */
+.reel{display:grid;grid-template-columns:repeat(2,1fr);gap:14px;margin-top:28px}
+.reel .clip{position:relative;border:1px solid var(--line);border-radius:14px;overflow:hidden;background:#000;box-shadow:0 18px 44px rgba(0,0,0,.5)}
+.reel video{display:block;width:100%;aspect-ratio:16/9;object-fit:cover;background:#000}
+.reel .clip::after{content:"";position:absolute;inset:0;pointer-events:none;box-shadow:inset 0 0 90px rgba(0,0,0,.5);border-radius:14px}
+.reel .lbl{position:absolute;left:11px;top:11px;z-index:2;font:600 10.5px/1 var(--f-mono);letter-spacing:.07em;text-transform:uppercase;color:#fff;background:rgba(10,10,11,.55);border:1px solid var(--line);border-radius:999px;padding:5px 11px;backdrop-filter:blur(6px)}
+
+@media(max-width:820px){.hero h1{font-size:44px}.cards{grid-template-columns:1fr}.unit{grid-template-columns:1fr 1fr}.band{grid-template-columns:1fr 1fr}.strip .perf{grid-template-columns:repeat(3,1fr)}.gallery{grid-template-columns:repeat(2,1fr)}.reel{grid-template-columns:1fr}.sec h2{font-size:24px}.close h2{font-size:26px}}
 </style></head>
 <body>
 <div class="wrap">
@@ -151,12 +170,12 @@ a{color:var(--fg);text-decoration:none}
 
   <div class="strip">
     <div class="perf">
-      <div class="frame"><b>1</b><span>plan</span></div>
-      <div class="frame"><b>2</b><span>storyboard</span></div>
-      <div class="frame"><b>3</b><span>identity QA</span></div>
-      <div class="frame"><b>4</b><span>keyframe take</span></div>
-      <div class="frame"><b>5</b><span>edit</span></div>
-      <div class="frame"><b>6</b><span>final cut</span></div>
+      <div class="frame"><img src="img/noir_42.jpg" loading="lazy" alt=""><span>noir</span></div>
+      <div class="frame"><img src="img/astro_18.jpg" loading="lazy" alt=""><span>sci-fi</span></div>
+      <div class="frame"><img src="img/noir_88.jpg" loading="lazy" alt=""><span>noir</span></div>
+      <div class="frame"><img src="img/astro_68.jpg" loading="lazy" alt=""><span>drama</span></div>
+      <div class="frame"><img src="img/noir_18.jpg" loading="lazy" alt=""><span>noir</span></div>
+      <div class="frame"><img src="img/astro_42.jpg" loading="lazy" alt=""><span>sci-fi</span></div>
     </div>
     <div class="sprockets"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
   </div>
@@ -234,6 +253,32 @@ a{color:var(--fg);text-decoration:none}
       <div class="member"><div class="av"><img src="https://filmwriter.tlz.us/crew/legal.png?v=2" alt="" onerror="this.closest('.av').style.display='none'"></div><div><div class="nm">Avery Sloan</div><div class="rl">Clearances</div></div></div>
       <div class="member"><div class="av"><img src="https://filmwriter.tlz.us/crew/shoot.png?v=2" alt="" onerror="this.closest('.av').style.display='none'"></div><div><div class="nm">Sergio Ray</div><div class="rl">Cinematographer</div></div></div>
       <div class="member"><div class="av"><img src="https://filmwriter.tlz.us/crew/edit.png?v=2" alt="" onerror="this.closest('.av').style.display='none'"></div><div><div class="nm">Max Cutter</div><div class="rl">Editor</div></div></div>
+    </div>
+  </div>
+
+  <div class="sec">
+    <p class="eyebrow">Frames it has directed</p>
+    <h2>Every one of these is generated — and inspected.</h2>
+    <p class="lead">Real stills pulled from finished films. Each one passed a physical-coherence inspector (correct anatomy, nothing sliced off the frame), a story-need check, identity verification against the cast, and a legal clearance before it was allowed into the cut.</p>
+    <div class="gallery">
+      <figure><img src="img/noir_18.jpg" loading="lazy" alt="noir film still"><figcaption>Rain-soaked noir</figcaption></figure>
+      <figure><img src="img/noir_42.jpg" loading="lazy" alt="noir detective still"><figcaption>The detective</figcaption></figure>
+      <figure><img src="img/noir_68.jpg" loading="lazy" alt="neon noir still"><figcaption>Neon &amp; shadow</figcaption></figure>
+      <figure><img src="img/noir_88.jpg" loading="lazy" alt="noir still"><figcaption>One last case</figcaption></figure>
+      <figure><img src="img/astro_18.jpg" loading="lazy" alt="observatory still"><figcaption>The observatory</figcaption></figure>
+      <figure><img src="img/astro_42.jpg" loading="lazy" alt="astronomer still"><figcaption>Watching the sky</figcaption></figure>
+      <figure><img src="img/astro_68.jpg" loading="lazy" alt="comet still"><figcaption>The comet</figcaption></figure>
+      <figure><img src="img/astro_88.jpg" loading="lazy" alt="film still"><figcaption>Quiet resolve</figcaption></figure>
+    </div>
+  </div>
+
+  <div class="sec">
+    <p class="eyebrow">In motion</p>
+    <h2>Whole films, start to finish.</h2>
+    <p class="lead">Each one generated end-to-end from a single logline — directed, shot, scored, and cut with no human in the loop. These play live, straight from the app.</p>
+    <div class="reel">
+      <div class="clip"><span class="lbl">Noir · one last case</span><video src="https://filmwriter.tlz.us/made/9bdf74c0/film" autoplay muted loop playsinline preload="metadata"></video></div>
+      <div class="clip"><span class="lbl">Sci-fi · the comet</span><video src="https://filmwriter.tlz.us/made/dbe660c3/film" autoplay muted loop playsinline preload="metadata"></video></div>
     </div>
   </div>
 
