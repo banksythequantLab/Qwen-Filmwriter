@@ -26,21 +26,32 @@ export async function hasAudio(p) {
   } catch { return false; }
 }
 
+// Probe a media file's duration in seconds (0 if unknown). Used to hard-bound segment length so a
+// padded/infinite audio layer (apad/amix) can never drive an unbounded mux that pins the box.
+export async function mediaDuration(p) {
+  try {
+    const { stdout } = await exec("ffprobe", ["-v", "error", "-show_entries", "format=duration", "-of", "default=noprint_wrappers=1:nokey=1", p]);
+    return parseFloat(stdout) || 0;
+  } catch { return 0; }
+}
+
 // Build one normalized segment. DEFAULT: preserve the clip's native audio (wan2.6 SFX/ambient).
 // voPath is an OPTIONAL voiceover layer — when present it is MIXED over the native bed (native ducked),
 // not replaced. Silence is used only when the clip has no audio and there's no voiceover.
 export async function buildSegment(clipPath, voPath, segPath) {
   const native = await hasAudio(clipPath);
+  const vdur = await mediaDuration(clipPath);          // hard-bound output to the video length...
+  const cap = vdur ? ["-t", vdur.toFixed(2)] : [];     // ...so apad/amix can never run unbounded
   if (voPath && native) {
     await ff(["-i", clipPath, "-i", voPath,
-      "-filter_complex", `[0:v]${SCALE}[v];[0:a]volume=0.35[bg];[1:a]apad[vo];[bg][vo]amix=inputs=2:duration=longest:normalize=0[a]`,
-      "-map", "[v]", "-map", "[a]", ...ENC, segPath]);
+      "-filter_complex", `[0:v]${SCALE}[v];[0:a]volume=0.35[bg];[1:a]apad[vo];[bg][vo]amix=inputs=2:duration=first:normalize=0[a]`,
+      "-map", "[v]", "-map", "[a]", ...ENC, ...cap, segPath]);
   } else if (voPath) {
-    await ff(["-i", clipPath, "-i", voPath, "-filter_complex", `[0:v]${SCALE}[v];[1:a]apad[a]`, "-map", "[v]", "-map", "[a]", ...ENC, segPath]);
+    await ff(["-i", clipPath, "-i", voPath, "-filter_complex", `[0:v]${SCALE}[v];[1:a]apad[a]`, "-map", "[v]", "-map", "[a]", ...ENC, ...cap, segPath]);
   } else if (native) {
-    await ff(["-i", clipPath, "-filter_complex", `[0:v]${SCALE}[v]`, "-map", "[v]", "-map", "0:a", ...ENC, segPath]);
+    await ff(["-i", clipPath, "-filter_complex", `[0:v]${SCALE}[v]`, "-map", "[v]", "-map", "0:a", ...ENC, ...cap, segPath]);
   } else {
-    await ff(["-i", clipPath, "-f", "lavfi", "-i", "anullsrc=channel_layout=stereo:sample_rate=44100", "-filter_complex", `[0:v]${SCALE}[v]`, "-map", "[v]", "-map", "1:a", ...ENC, segPath]);
+    await ff(["-i", clipPath, "-f", "lavfi", "-i", "anullsrc=channel_layout=stereo:sample_rate=44100", "-filter_complex", `[0:v]${SCALE}[v]`, "-map", "[v]", "-map", "1:a", ...ENC, ...cap, segPath]);
   }
 }
 
