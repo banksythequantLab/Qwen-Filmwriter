@@ -15,11 +15,13 @@ import { architect, storyReview, contradictionCheck, replanBeats, identityReview
 import { buildState, stateForScene, lockedFacts } from "./state.mjs";
 import { throughline } from "./throughline.mjs";
 import { composeStorySoFar, rollingSummarize } from "./memory.mjs";
+import { evaluate } from "./evaluate.mjs";
 
 export async function showrun(input, { scenes = 3, source = "logline", maxScenes = 24, aspect = "16:9", outDir = "output/film", render = true, forceStrategy, voiceover = false, log = console.log, onEvent = () => {} } = {}) {
   const dir = path.resolve(outDir);
   mkdirSync(dir, { recursive: true });
   const emit = (id, patch) => { try { onEvent({ id, ...patch }); } catch {} };
+  const signals = { continuity: null, throughline: null, story: null, identity: null };  // grounded QA signals -> Phase 4 KPI
   const STILL_SIZE = { "16:9": "1664*928", "9:16": "928*1664", "1:1": "1328*1328", "4:3": "1472*1104", "3:4": "1104*1472" }[aspect] || "1664*928";
   const VIDEO_SIZE = { "16:9": "1280*720", "9:16": "720*1280", "1:1": "960*960", "4:3": "1280*960", "3:4": "960*1280" }[aspect] || "1280*720";
   const preview = source === "chapter" ? input.replace(/\s+/g, " ").slice(0, 90) + "…" : `"${input}"`;
@@ -60,7 +62,8 @@ export async function showrun(input, { scenes = 3, source = "logline", maxScenes
         for (const c of cc.conflicts.slice(0, 6)) log(`contradiction: S${c.id} — ${c.issue} (violates: ${c.fact})`);
         const rp = await replanBeats(p, storyState, cc.conflicts);
         if (rp.ok) { p.scenes = rp.scenes; log(`replan: rewrote ${[...new Set(cc.conflicts.map((c) => c.id))].length} beat(s) to resolve contradiction(s)`); }
-      } else { log(`continuity: no contradictions found`); }
+        signals.continuity = { conflicts: cc.conflicts.length, resolved: !!rp.ok };
+      } else { log(`continuity: no contradictions found`); signals.continuity = { conflicts: 0, resolved: true }; }
     } catch (e) { log(`state: error — ${e.message}`); }
   }
 
@@ -73,6 +76,7 @@ export async function showrun(input, { scenes = 3, source = "logline", maxScenes
       const tl = await throughline(p);
       if (tl.ok) {
         mustShowById = tl.mustShow || {};
+        signals.throughline = { breaks: (tl.breaks || []).length };
         if (tl.question) log(`throughline: central question — ${tl.question}`);
         for (const b of (tl.breaks || []).slice(0, 4)) log(`throughline: break S${b.id} — ${b.issue}`);
         log(`throughline: ${Object.keys(mustShowById).length} scene(s) carry must-show requirements`);
@@ -197,13 +201,15 @@ export async function showrun(input, { scenes = 3, source = "logline", maxScenes
         const issueById = new Map((sr.review.per_scene || []).filter((x) => x && Number.isFinite(+x.id)).map((x) => [+x.id, x.issue]));
         let weakIds = (sr.review.weak_panels || []).filter((sid) => sampleByScene.has(sid));
         for (const w of weakIds) log(`story-review: weak frame S${w}${issueById.get(w) ? " — " + issueById.get(w) : ""}`);
+        signals.story = { tells_story: sr.review.tells_story !== false, weak: weakIds.length, unresolved: weakIds.length, sampled: sampled.length };
 
         // ---- IDENTITY: do the characters still match their reference sheets? (objective re-roll trigger) ----
         const idr = await identityReview(refByName, toFrames(sampled));
         if (idr.ok) {
-          if (idr.review.consistent && !idr.review.drift.length) log(`identity: characters consistent with references`);
-          for (const d of idr.review.drift.slice(0, 6)) {
-            if (!sampleByScene.has(+d.id)) continue;
+          const driftIn = (idr.review.drift || []).filter((d) => sampleByScene.has(+d.id));
+          signals.identity = { drift: driftIn.length, sampled: sampled.length };
+          if (idr.review.consistent && !driftIn.length) log(`identity: characters consistent with references`);
+          for (const d of driftIn.slice(0, 6)) {
             log(`identity: drift S${d.id}${d.character ? " (" + d.character + ")" : ""}${d.issue ? " — " + d.issue : ""}`);
             if (!issueById.has(+d.id)) issueById.set(+d.id, `the character ${d.character || ""} looks different from their reference portrait — match the reference's face, hair and wardrobe exactly`);
             if (!weakIds.includes(+d.id)) weakIds.push(+d.id);
@@ -231,6 +237,7 @@ export async function showrun(input, { scenes = 3, source = "logline", maxScenes
           if (fixedUnits.length) {
             const rc = await storyReview(p, toFrames(fixedUnits));
             const stillWeak = rc.ok ? (rc.review.weak_panels || []).filter((sid) => fixedUnits.some((u) => u.sceneId === sid)) : [];
+            if (signals.story) signals.story.unresolved = rc.ok ? stillWeak.length : 0;   // re-check skipped -> assume held
             if (!rc.ok) log(`story-fix: re-check skipped — assuming fixes hold`);
             else if (stillWeak.length) log(`story-fix: unresolved (${stillWeak.length}) — S${stillWeak.join(", S")} still weak after re-roll`);
             else log(`story-fix: resolved — all re-rolled frames now read`);
@@ -307,7 +314,20 @@ export async function showrun(input, { scenes = 3, source = "logline", maxScenes
   const finalPath = path.join(dir, "final.mp4");
   await finalize(finalRaw, finalPath);   // cinematic fade in/out
   log(`\nFINAL CUT: ${finalPath}`);
-  return { title: p.title, finalPath, scenes: scenesPlan.length };
+
+  // ---- PHASE 4: SELF-EVALUATION — score the finished film on the rubric, emit a single KPI ----
+  let evaluation = null;
+  try {
+    const evalFrames = [...new Map(units.filter((u) => u.stillUrl).map((u) => [u.sceneId, u.stillUrl])).values()].slice(0, 8);
+    evaluation = await evaluate({ plan: p, signals, frames: evalFrames });
+    writeFileSync(path.join(dir, "evaluation.json"), JSON.stringify(evaluation, null, 2));
+    const d = evaluation.dimensions;
+    log(`evaluation: KPI ${evaluation.score}/100 — continuity ${d.continuity} · identity ${d.identity} · beats ${d.beats} · through-line ${d.throughline}${d.craft != null ? ` · craft ${d.craft}` : ""}`);
+    if (evaluation.critique) log(`evaluation: ${evaluation.critique}`);
+    emit("_eval", { kpi: evaluation.score, dimensions: d });
+  } catch (e) { log(`evaluation: error — ${e.message}`); }
+
+  return { title: p.title, finalPath, scenes: scenesPlan.length, kpi: evaluation?.score ?? null, evaluation };
 }
 
 
