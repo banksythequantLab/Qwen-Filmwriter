@@ -1,0 +1,267 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Filmwriter, by TLZ — the autonomous AI showrunner</title>
+<meta name="description" content="Filmwriter is an autonomous AI showrunner on Qwen Cloud. One logline in, a finished short film out — planned, directed, shot, self-checked, and edited with no human in the loop."/>
+<meta property="og:title" content="Filmwriter, by TLZ — autonomous AI showrunner"/>
+<meta property="og:description" content="One logline in. A finished short out. An autonomous team of Qwen agents that plans, directs, shoots, checks its own frames, scores itself, and edits."/>
+<meta property="og:type" content="website"/>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#08080a; --panel:#121214; --panel2:#0f0f11; --bar:#171719; --line:#262629; --line2:#39393d;
+  --fg:#f4f4f6; --dim:#9b9ba3; --faint:#62626a; --cyan:#ffffff; --mag:#b9b9c2; --green:#e6e6ea;
+  --f-disp:"Space Grotesk",ui-sans-serif,system-ui,sans-serif;
+  --f-body:"Inter",ui-sans-serif,system-ui,"Segoe UI",Roboto,sans-serif;
+  --f-mono:"JetBrains Mono",ui-monospace,"Consolas",monospace;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;color:var(--fg);font-family:var(--f-body);font-size:16.5px;line-height:1.6;-webkit-font-smoothing:antialiased;
+  background:
+   radial-gradient(1200px 640px at 50% -8%, rgba(255,255,255,.07), transparent 62%),
+   radial-gradient(1000px 540px at 92% 6%, rgba(255,255,255,.04), transparent 60%),
+   radial-gradient(900px 560px at 4% 22%, rgba(255,255,255,.03), transparent 60%),
+   var(--bg);
+  background-attachment:fixed;}
+body::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:0;
+  background-image:linear-gradient(rgba(255,255,255,.022) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.022) 1px,transparent 1px);
+  background-size:46px 46px;-webkit-mask-image:radial-gradient(circle at 50% 0%,#000,transparent 74%);mask-image:radial-gradient(circle at 50% 0%,#000,transparent 74%);}
+a{color:var(--fg);text-decoration:none}
+.wrap{max-width:1080px;margin:0 auto;padding:0 22px;position:relative;z-index:1}
+.mono{font-family:var(--f-mono)}
+
+/* nav */
+.nav{display:flex;align-items:center;gap:14px;padding:22px 0}
+.brand{font-family:var(--f-disp);font-weight:700;letter-spacing:.16em;font-size:19px}
+.brand b{background:linear-gradient(90deg,var(--cyan),var(--mag));-webkit-background-clip:text;background-clip:text;color:transparent}
+.nav .tag{color:var(--dim);font-size:14px;letter-spacing:.02em}
+.nav .right{margin-left:auto;display:flex;align-items:center;gap:10px}
+.nav .right a{font-family:var(--f-mono);font-size:13px;color:var(--dim);border:1px solid var(--line);border-radius:999px;padding:7px 14px;background:rgba(255,255,255,.02);transition:.18s}
+.nav .right a:hover{color:var(--fg);border-color:var(--line2)}
+.nav .right a.cta{color:#0a0a0b;background:linear-gradient(90deg,var(--cyan),#d4d4da);border-color:transparent;font-weight:600}
+
+/* hero */
+.hero{text-align:center;padding:60px 0 8px}
+.kicker{display:inline-flex;align-items:center;gap:8px;font-family:var(--f-mono);font-size:12px;letter-spacing:.12em;text-transform:uppercase;
+  color:var(--dim);border:1px solid var(--line);border-radius:999px;padding:6px 14px;margin-bottom:26px;background:rgba(255,255,255,.02)}
+.kicker .k{width:6px;height:6px;border-radius:50%;background:#fff;box-shadow:0 0 9px #fff;animation:beat 2.4s ease-in-out infinite}
+@keyframes beat{0%,100%{opacity:1}50%{opacity:.35}}
+.hero h1{font-family:var(--f-disp);font-size:72px;line-height:1.0;margin:0;font-weight:700;letter-spacing:-.025em}
+.hero h1 .g{background:linear-gradient(100deg,#ffffff,#d7d7dd 46%,var(--mag) 95%);-webkit-background-clip:text;background-clip:text;color:transparent}
+.hero p{color:var(--dim);font-size:19px;max-width:680px;margin:20px auto 0;line-height:1.6}
+.hero .ctas{display:flex;gap:13px;justify-content:center;flex-wrap:wrap;margin-top:32px}
+.btn{font-family:var(--f-disp);font-weight:600;font-size:16px;letter-spacing:.01em;border-radius:12px;padding:14px 26px;cursor:pointer;transition:transform .15s,box-shadow .15s,border-color .18s,background .18s;border:1px solid var(--line2)}
+.btn.primary{color:#0a0a0b;border-color:transparent;background:linear-gradient(90deg,var(--cyan),#d4d4da);box-shadow:0 12px 30px rgba(255,255,255,.26)}
+.btn.primary:hover{transform:translateY(-2px);box-shadow:0 16px 38px rgba(255,255,255,.36)}
+.btn.ghost{color:var(--fg);background:rgba(255,255,255,.03)}
+.btn.ghost:hover{transform:translateY(-2px);border-color:#55555b;background:rgba(255,255,255,.07)}
+
+/* hero film strip */
+.strip{max-width:900px;margin:46px auto 0;border:1px solid var(--line);border-radius:16px;overflow:hidden;position:relative;
+  box-shadow:0 30px 80px rgba(0,0,0,.55),inset 0 1px 0 rgba(255,255,255,.05)}
+.strip .perf{display:grid;grid-template-columns:repeat(6,1fr);gap:0}
+.strip .frame{aspect-ratio:16/9;position:relative;border-right:1px solid rgba(255,255,255,.05);background:linear-gradient(135deg,#161619,#0c0c0e)}
+.strip .frame:last-child{border-right:0}
+.strip .frame span{position:absolute;left:0;right:0;bottom:0;padding:7px 9px;font:600 10px/1.2 var(--f-mono);letter-spacing:.05em;color:var(--dim);text-transform:uppercase;background:linear-gradient(180deg,transparent,rgba(0,0,0,.7))}
+.strip .frame b{position:absolute;inset:0;display:grid;place-items:center;font-family:var(--f-disp);font-weight:700;font-size:26px;color:rgba(255,255,255,.14)}
+.strip::after{content:"";position:absolute;inset:0;pointer-events:none;box-shadow:inset 0 0 110px rgba(0,0,0,.6)}
+.strip .sprockets{display:flex;justify-content:space-between;padding:7px 10px;background:#0a0a0b;border-top:1px solid rgba(255,255,255,.05)}
+.strip .sprockets i{width:14px;height:9px;border-radius:2px;background:#1a1a1d}
+
+/* section scaffolding */
+.sec{margin:78px auto 0}
+.sec .eyebrow{font-family:var(--f-mono);font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--faint);margin:0 0 10px}
+.sec h2{font-family:var(--f-disp);font-size:30px;line-height:1.1;margin:0;font-weight:600;letter-spacing:-.01em}
+.sec .lead{color:var(--dim);font-size:17px;max-width:680px;margin:14px 0 0}
+
+/* pipeline rail */
+.rail{display:flex;flex-wrap:wrap;gap:8px;margin-top:28px}
+.rail .stp{display:flex;align-items:center;gap:9px;border:1px solid var(--line);background:var(--panel);border-radius:10px;padding:11px 14px;font-family:var(--f-mono);font-size:13px;color:var(--dim);transition:.2s}
+.rail .stp:hover{border-color:var(--line2);color:var(--fg);transform:translateY(-2px)}
+.rail .stp em{font-style:normal;color:var(--faint);font-size:11px}
+.rail .arw{align-self:center;color:var(--faint);font-family:var(--f-mono)}
+
+/* feature cards */
+.cards{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-top:30px}
+.feat{background:linear-gradient(180deg,rgba(28,28,31,.6),rgba(13,13,15,.6));border:1px solid var(--line);border-radius:16px;padding:22px;transition:transform .2s,border-color .25s,box-shadow .25s}
+.feat:hover{transform:translateY(-3px);border-color:var(--line2);box-shadow:0 18px 44px rgba(0,0,0,.5)}
+.feat .ic{width:40px;height:40px;border-radius:11px;display:grid;place-items:center;border:1px solid var(--line2);background:radial-gradient(circle at 50% 30%,#222226,#0e0e10);margin-bottom:15px}
+.feat .ic svg{width:21px;height:21px;stroke:#fff;fill:none;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
+.feat h3{font-family:var(--f-disp);font-weight:600;font-size:18px;margin:0 0 7px}
+.feat p{color:var(--dim);font-size:14.5px;margin:0;line-height:1.55}
+.feat .ph{display:inline-block;margin-top:13px;font-family:var(--f-mono);font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--faint);border:1px solid var(--line);border-radius:999px;padding:3px 9px}
+
+/* crew strip */
+.unit{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-top:28px}
+.member{background:var(--panel2);border:1px solid var(--line);border-radius:14px;padding:15px;display:flex;align-items:center;gap:12px;transition:.2s}
+.member:hover{border-color:var(--line2);transform:translateY(-2px)}
+.member .av{width:42px;height:42px;border-radius:11px;overflow:hidden;flex:none;border:1px solid var(--line2);background:radial-gradient(circle at 50% 32%,#222226,#0e0e10)}
+.member .av img{width:100%;height:100%;object-fit:cover;display:block}
+.member .nm{font-family:var(--f-disp);font-weight:600;font-size:15px;line-height:1.1}
+.member .rl{font-family:var(--f-mono);font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--faint);margin-top:4px}
+
+/* stat band */
+.band{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-top:30px;border:1px solid var(--line);border-radius:16px;padding:26px 20px;background:rgba(255,255,255,.015)}
+.band .s{text-align:center}
+.band .s b{display:block;font-family:var(--f-disp);font-weight:700;font-size:30px;letter-spacing:-.01em}
+.band .s span{font-family:var(--f-mono);font-size:11.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--faint)}
+
+/* closing cta */
+.close{margin:80px auto 0;text-align:center;border:1px solid var(--line);border-radius:20px;padding:48px 24px;
+  background:radial-gradient(700px 280px at 50% 0%,rgba(255,255,255,.06),transparent 70%),var(--panel2)}
+.close h2{font-family:var(--f-disp);font-size:34px;margin:0;font-weight:700;letter-spacing:-.02em}
+.close p{color:var(--dim);max-width:560px;margin:14px auto 0}
+.close .ctas{margin-top:28px}
+
+/* footer */
+.foot{margin:54px 0 56px;color:var(--faint);font-size:13px;text-align:center;font-family:var(--f-mono);letter-spacing:.02em}
+.models{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin:18px 0}
+.models span{border:1px solid var(--line);border-radius:999px;padding:5px 12px;color:var(--dim);transition:.18s}
+.models span:hover{border-color:var(--line2);color:var(--fg)}
+.foot a{color:var(--dim);text-decoration:underline;text-underline-offset:3px}
+.foot a:hover{color:var(--fg)}
+
+@media(max-width:820px){.hero h1{font-size:44px}.cards{grid-template-columns:1fr}.unit{grid-template-columns:1fr 1fr}.band{grid-template-columns:1fr 1fr}.strip .perf{grid-template-columns:repeat(3,1fr)}.sec h2{font-size:24px}.close h2{font-size:26px}}
+</style></head>
+<body>
+<div class="wrap">
+
+  <div class="nav">
+    <div class="brand">FILM<b>WRITER</b></div>
+    <div class="tag">by TLZ</div>
+    <div class="right">
+      <a href="https://github.com/banksythequantLab/Qwen-Filmwriter" target="_blank" rel="noopener">GitHub</a>
+      <a class="cta" href="https://filmwriter.tlz.us" target="_blank" rel="noopener">Open the app →</a>
+    </div>
+  </div>
+
+  <div class="hero">
+    <div class="kicker"><span class="k"></span>Global AI Hackathon · Track 2 · Qwen Cloud</div>
+    <h1>One logline in.<br><span class="g">A finished short out.</span></h1>
+    <p>Filmwriter is an autonomous AI showrunner. Hand it a single line — or a whole chapter — and a team of Qwen agents plans the story, builds a continuity bible, directs the shots, checks its own frames against the script and the cast, edits the cut, and scores the result. No human in the loop.</p>
+    <div class="ctas">
+      <a class="btn primary" href="https://filmwriter.tlz.us" target="_blank" rel="noopener">Direct a film →</a>
+      <a class="btn ghost" href="https://github.com/banksythequantLab/Qwen-Filmwriter" target="_blank" rel="noopener">View the source</a>
+    </div>
+  </div>
+
+  <div class="strip">
+    <div class="perf">
+      <div class="frame"><b>1</b><span>plan</span></div>
+      <div class="frame"><b>2</b><span>storyboard</span></div>
+      <div class="frame"><b>3</b><span>identity QA</span></div>
+      <div class="frame"><b>4</b><span>keyframe take</span></div>
+      <div class="frame"><b>5</b><span>edit</span></div>
+      <div class="frame"><b>6</b><span>final cut</span></div>
+    </div>
+    <div class="sprockets"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+  </div>
+
+  <div class="sec">
+    <p class="eyebrow">The pipeline</p>
+    <h2>From a sentence to a cut, autonomously.</h2>
+    <p class="lead">Every stage is an agent with a job. They hand the film down the line the way a real unit does — and each one can send a shot back.</p>
+    <div class="rail">
+      <div class="stp">Plan <em>arc</em></div><span class="arw">→</span>
+      <div class="stp">Continuity <em>bible</em></div><span class="arw">→</span>
+      <div class="stp">Through-line <em>must-show</em></div><span class="arw">→</span>
+      <div class="stp">Storyboard <em>stills</em></div><span class="arw">→</span>
+      <div class="stp">Identity QA <em>vs refs</em></div><span class="arw">→</span>
+      <div class="stp">Keyframe <em>takes</em></div><span class="arw">→</span>
+      <div class="stp">Edit <em>+ voice</em></div><span class="arw">→</span>
+      <div class="stp">Score <em>KPI</em></div>
+    </div>
+  </div>
+
+  <div class="sec">
+    <p class="eyebrow">Why it's a showrunner, not a generator</p>
+    <h2>It defends the story while it makes it.</h2>
+    <p class="lead">Most pipelines generate frames and hope. Filmwriter holds a typed memory of the film and checks every frame against it — catching drift, contradiction, and dropped setups before they reach the cut.</p>
+    <div class="cards">
+      <div class="feat">
+        <div class="ic"><svg viewBox="0 0 24 24"><path d="M5 3h9l5 5v11a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z"/><path d="M14 3v5h5"/><path d="M8 13h6M8 16.5h4"/></svg></div>
+        <h3>Continuity bible</h3>
+        <p>Before a frame is drawn, it extracts a typed, locked set of facts — who's alive, what's true, the world's rules — then guards every beat against contradicting them, rewriting the ones that do.</p>
+        <span class="ph">Phase 1</span>
+      </div>
+      <div class="feat">
+        <div class="ic"><svg viewBox="0 0 24 24"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg></div>
+        <h3>Identity verification</h3>
+        <p>A vision agent compares each rendered character to their reference sheet. When a face, hairstyle, or wardrobe drifts, that frame is re-shot against the reference until it matches.</p>
+        <span class="ph">Phase 2</span>
+      </div>
+      <div class="feat">
+        <div class="ic"><svg viewBox="0 0 24 24"><path d="M4 18 L9 8 L13 14 L20 5"/><path d="M4 20h16"/></svg></div>
+        <h3>Through-line, enforced</h3>
+        <p>It names the film's central question and turns each scene into concrete must-show requirements — so the comet is actually a comet, and the payoff has its setup.</p>
+        <span class="ph">Phase 3</span>
+      </div>
+      <div class="feat">
+        <div class="ic"><svg viewBox="0 0 24 24"><path d="M12 3l2.7 5.5 6 .9-4.3 4.2 1 6-5.4-2.8-5.4 2.8 1-6-4.3-4.2 6-.9z"/></svg></div>
+        <h3>It scores itself</h3>
+        <p>Every finished film gets a KPI — continuity, character consistency, beat fidelity, through-line, and craft — computed from the QA signals the agents actually produced, not a vibe.</p>
+        <span class="ph">Phase 4</span>
+      </div>
+      <div class="feat">
+        <div class="ic"><svg viewBox="0 0 24 24"><rect x="2.5" y="7" width="13" height="10" rx="1.5"/><path d="M15.5 10.5l6-3v9l-6-3z"/></svg></div>
+        <h3>Keyframe-anchored takes</h3>
+        <p>Long takes are interpolated between two real compositions — a start frame and an end frame — so the camera travels with intent instead of drifting from a single image.</p>
+        <span class="ph">Phase 4</span>
+      </div>
+      <div class="feat">
+        <div class="ic"><svg viewBox="0 0 24 24"><path d="M12 3l7 3v5c0 5-3.4 8.6-7 10-3.6-1.4-7-5-7-10V6z"/><path d="M9 12l2 2 4-4"/></svg></div>
+        <h3>Legal &amp; clearances</h3>
+        <p>A clearances agent audits every still for trademarked characters, logos, and garbled on-screen text — flagging and re-rolling anything that wouldn't clear, automatically.</p>
+        <span class="ph">Always on</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="sec">
+    <p class="eyebrow">The unit</p>
+    <h2>An eight-agent film crew.</h2>
+    <p class="lead">Each role is a distinct agent. Watch them light up and hand off the work in real time while a film is being made.</p>
+    <div class="unit">
+      <div class="member"><div class="av"><img src="https://filmwriter.tlz.us/crew/show.png?v=2" alt="" onerror="this.closest('.av').style.display='none'"></div><div><div class="nm">The Showrunner</div><div class="rl">Director</div></div></div>
+      <div class="member"><div class="av"><img src="https://filmwriter.tlz.us/crew/write.png?v=2" alt="" onerror="this.closest('.av').style.display='none'"></div><div><div class="nm">Margot Penn</div><div class="rl">Screenwriter</div></div></div>
+      <div class="member"><div class="av"><img src="https://filmwriter.tlz.us/crew/story.png?v=2" alt="" onerror="this.closest('.av').style.display='none'"></div><div><div class="nm">Theo Brandt</div><div class="rl">Story Editor</div></div></div>
+      <div class="member"><div class="av"><img src="https://filmwriter.tlz.us/crew/board.png?v=2" alt="" onerror="this.closest('.av').style.display='none'"></div><div><div class="nm">Vee Dax</div><div class="rl">Storyboard</div></div></div>
+      <div class="member"><div class="av"><img src="https://filmwriter.tlz.us/crew/cont.png?v=2" alt="" onerror="this.closest('.av').style.display='none'"></div><div><div class="nm">Iris Calder</div><div class="rl">Continuity</div></div></div>
+      <div class="member"><div class="av"><img src="https://filmwriter.tlz.us/crew/legal.png?v=2" alt="" onerror="this.closest('.av').style.display='none'"></div><div><div class="nm">Avery Sloan</div><div class="rl">Clearances</div></div></div>
+      <div class="member"><div class="av"><img src="https://filmwriter.tlz.us/crew/shoot.png?v=2" alt="" onerror="this.closest('.av').style.display='none'"></div><div><div class="nm">Sergio Ray</div><div class="rl">Cinematographer</div></div></div>
+      <div class="member"><div class="av"><img src="https://filmwriter.tlz.us/crew/edit.png?v=2" alt="" onerror="this.closest('.av').style.display='none'"></div><div><div class="nm">Max Cutter</div><div class="rl">Editor</div></div></div>
+    </div>
+  </div>
+
+  <div class="sec">
+    <div class="band">
+      <div class="s"><b>1</b><span>logline in</span></div>
+      <div class="s"><b>8</b><span>agents</span></div>
+      <div class="s"><b>0</b><span>humans in the loop</span></div>
+      <div class="s"><b>∞</b><span>films out</span></div>
+    </div>
+  </div>
+
+  <div class="close">
+    <h2>Give it a sentence.</h2>
+    <p>Type a logline, pick your scenes and aspect, and watch the unit make your film — live, frame by frame.</p>
+    <div class="ctas">
+      <a class="btn primary" href="https://filmwriter.tlz.us" target="_blank" rel="noopener">Open Filmwriter →</a>
+      <a class="btn ghost" href="https://github.com/banksythequantLab/Qwen-Filmwriter" target="_blank" rel="noopener">Read the code</a>
+    </div>
+  </div>
+
+  <div class="foot">
+    <div class="models">
+      <span>qwen-max</span><span>qwen-plus</span><span>qwen3-vl-plus</span><span>qwen-image-plus</span>
+      <span>qwen-image-edit-max</span><span>wan2.6</span><span>wan2.2-kf2v</span><span>qwen3-tts-flash</span>
+    </div>
+    Filmwriter, by TLZ · Track 2: AI Showrunner · built on Qwen Cloud &amp; Alibaba Cloud · <a href="https://filmwriter.tlz.us" target="_blank" rel="noopener">filmwriter.tlz.us</a>
+  </div>
+
+</div>
+</body></html>
