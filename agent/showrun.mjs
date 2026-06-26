@@ -140,23 +140,47 @@ export async function showrun(input, { scenes = 3, source = "logline", maxScenes
   // ---- STORY EDITOR (vision): do the RENDERED frames actually tell the story? ----
   try {
     const beatById = new Map((p.scenes || []).map((s) => [s.id, s.beat]));
-    const seen = new Set();
-    let frames = [];
-    for (const u of units) {                       // one representative still per scene, in order
-      if (u.stillUrl && !seen.has(u.sceneId)) { seen.add(u.sceneId); frames.push({ id: u.sceneId, beat: beatById.get(u.sceneId) || "", url: u.stillUrl }); }
+    const sampleByScene = new Map();              // sceneId -> the exact unit whose frame we judge (and may re-roll)
+    for (const u of units) { if (u.stillUrl && !sampleByScene.has(u.sceneId)) sampleByScene.set(u.sceneId, u); }
+    let sampled = [...sampleByScene.values()];
+    if (sampled.length > 12) {                     // cap the vision payload — sample evenly across the film
+      const step = sampled.length / 12;
+      sampled = Array.from({ length: 12 }, (_, i) => sampled[Math.floor(i * step)]);
     }
-    if (frames.length > 12) {                      // cap the vision payload — sample evenly across the film
-      const step = frames.length / 12;
-      frames = Array.from({ length: 12 }, (_, i) => frames[Math.floor(i * step)]);
-    }
-    if (frames.length >= 2) {
-      log(`story-review: watching ${frames.length} storyboard frames`);
-      const sr = await storyReview(p, frames);
+    const toFrames = (arr) => arr.map((u) => ({ id: u.sceneId, beat: beatById.get(u.sceneId) || "", url: u.stillUrl }));
+    if (sampled.length >= 2) {
+      log(`story-review: watching ${sampled.length} storyboard frames`);
+      const sr = await storyReview(p, toFrames(sampled));
       if (sr.ok) {
         log(`story-review: ${sr.review.tells_story ? "the frames tell the story" : "some frames miss the beat"}${sr.review.summary ? " — " + sr.review.summary : ""}`);
-        for (const w of (sr.review.weak_panels || []).slice(0, 8)) {
-          const pr = (sr.review.per_scene || []).find((x) => x.id === w);
-          log(`story-review: weak frame S${w}${pr && pr.issue ? " — " + pr.issue : ""}`);
+        const issueById = new Map((sr.review.per_scene || []).map((x) => [x.id, x.issue]));
+        const weak = (sr.review.weak_panels || []).filter((sid) => sampleByScene.has(sid)).slice(0, 6);
+        for (const w of weak) log(`story-review: weak frame S${w}${issueById.get(w) ? " — " + issueById.get(w) : ""}`);
+
+        // ---- VERIFY -> FIX: re-roll ONLY the weak frames with Theo's note, once (bounded) ----
+        if (weak.length && process.env.QWEN_STORY_FIX !== "0") {
+          log(`story-fix: re-rolling ${weak.length} weak frame(s)`);
+          const fixedUnits = [];
+          await mapLimit(weak, STILL_CC, async (sid) => {
+            const u = sampleByScene.get(sid); if (!u) return;
+            const issue = issueById.get(sid) || "the frame does not clearly convey its story beat";
+            const beat = beatById.get(sid) || "";
+            const fixPrompt = `${u.prompts.image_prompt}. Overall style: ${p.style}. STORY FIX — the previous version failed because: ${issue}. This frame MUST clearly read as this story beat: ${beat}.`;
+            emit(u.id, { status: "drawing", storyfix: true });
+            const re = await approvedStill(fixPrompt, { referenceUrl: pickRefs(u, refByName, referenceUrl), size: STILL_SIZE,
+              onStep: (a, v, url) => { emit(u.id, { status: v.pass ? "frame" : "drawing", stillUrl: url, attempt: a, pass: v.pass }); },
+              onLegal: (a, lv) => { emit(u.id, { legal: lv.pass ? "clear" : "flag" }); } });
+            if (re.url) { u.stillUrl = re.url; emit(u.id, { status: "frame", stillUrl: re.url, storyfixed: true }); fixedUnits.push(u); log(`story-fix: S${sid} re-rolled`); }
+            else log(`story-fix: S${sid} re-roll blocked — kept original`);
+          });
+          // ---- RE-CHECK the re-rolled frames once; report, don't loop ----
+          if (fixedUnits.length) {
+            const rc = await storyReview(p, toFrames(fixedUnits));
+            const stillWeak = rc.ok ? (rc.review.weak_panels || []).filter((sid) => fixedUnits.some((u) => u.sceneId === sid)) : [];
+            if (!rc.ok) log(`story-fix: re-check skipped — assuming fixes hold`);
+            else if (stillWeak.length) log(`story-fix: unresolved (${stillWeak.length}) — S${stillWeak.join(", S")} still weak after re-roll`);
+            else log(`story-fix: resolved — all re-rolled frames now read`);
+          }
         }
       } else { log(`story-review: skipped`); }
     }

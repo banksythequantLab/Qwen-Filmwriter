@@ -364,7 +364,8 @@ function crewStates(t,panels,status){
   let ph=0; if(wrote)ph=1; if(boarding)ph=2; if(qa)ph=3; if(animating)ph=4; if(editing)ph=5; if(done)ph=6;
   const m=t.match(/pass=(true|false)(?![\s\S]*pass=(?:true|false))/); const lastFail=!!(m&&m[1]==='false');
   const lm=t.match(/legal \d+: (clear|FLAG)(?![\s\S]*legal \d+: (?:clear|FLAG))/); const legalFlag=!!(lm&&lm[1]==='FLAG');
-  const storyFlag=has(/story: arc needs work|story-review: some frames miss|story-review: weak frame/);
+  const storyFix=has(/story-fix:/);
+  const storyFlag=has(/story: arc needs work|story-fix: unresolved/)||(has(/story-review: some frames miss|story-review: weak frame/)&&!storyFix);
   return {scenes,total,stills,clips,
     show: done?'done':'active',
     write: ph>=1?'done':'active',
