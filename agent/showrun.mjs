@@ -7,7 +7,7 @@ import { adapt } from "./planner.mjs";
 import { shotlist } from "./shotlist.mjs";
 import { promptgen } from "./promptgen.mjs";
 import { approvedStill } from "./visualQA.mjs";
-import { voiceForShot } from "./voice.mjs";
+import { voiceForShot, voiceForScene } from "./voice.mjs";
 import { editorPlan, assembleEdit } from "./editor.mjs";
 import { buildSegment, concat, finalize } from "./stitch.mjs";
 import { video, download } from "../lib/qwen.mjs";
@@ -44,6 +44,14 @@ export async function showrun(input, { scenes = 3, source = "logline", maxScenes
   }
   const spine = p.spine || p.logline || "";
   const theme = p.theme || "";
+
+  // ---- NARRATION: the Story Architect decides whether the FORM wants a narrator (noir, doc, fable...) ----
+  const nar = p.narration || {};
+  const useVO = voiceover || nar.mode === "voiceover";
+  const narVoice = nar.voice || null;
+  if (nar.mode === "voiceover") log(`narration: voiceover${nar.style ? ` · ${nar.style}` : ""}${nar.voice ? ` · ${nar.voice}` : ""}${nar.rationale ? ` — ${nar.rationale}` : ""}`);
+  else if (voiceover) log(`narration: voiceover (requested)`);
+  else log(`narration: none — letting the pictures and native audio carry it`);
 
   // Expand: scene -> { strategy, shots(+prompts) }. Carry a running "story so far" into every shot.
   const scenesPlan = [];
@@ -194,14 +202,17 @@ export async function showrun(input, { scenes = 3, source = "logline", maxScenes
         sceneClip = path.join(dir, `scene_${sp.scene.id}_edited.mp4`);
         await assembleEdit(spineU.clipPath, Object.fromEntries(cuts.map((u) => [u.id, u.clipPath])), edl, sceneClip, dir);
       }
-      const voPath = voiceover ? await voiceForShot(spineU.shot, path.join(dir, `vo_s${sp.scene.id}.wav`), { voice: pickVoice(p, spineU.shot) }) : null;
+      const leadVO = { narration: sp.scene.narration || "", dialogue: spineU.shot.dialogue || [] };
+      const voPath = useVO ? await voiceForScene(leadVO, path.join(dir, `vo_s${sp.scene.id}.wav`), { voice: narVoice || pickVoice(p, spineU.shot) }) : null;
       sceneFinal = path.join(dir, `scene_${sp.scene.id}.mp4`);
       await buildSegment(sceneClip, voPath, sceneFinal);
     } else {
       const segs = [];
-      let i = 0;
+      let i = 0, lead = true;
       for (const u of us) {
-        const voPath = voiceover ? await voiceForShot(u.shot, path.join(dir, `vo_${u.id}.wav`), { voice: pickVoice(p, u.shot) }) : null;
+        const voObj = lead ? { narration: sp.scene.narration || "", dialogue: u.shot.dialogue || [] } : u.shot;
+        const voPath = useVO ? await voiceForScene(voObj, path.join(dir, `vo_${u.id}.wav`), { voice: narVoice || pickVoice(p, u.shot) }) : null;
+        lead = false;
         const seg = path.join(dir, `seg_${u.id}_${String(++i).padStart(2, "0")}.mp4`);
         await buildSegment(u.clipPath, voPath, seg);
         segs.push(seg);
