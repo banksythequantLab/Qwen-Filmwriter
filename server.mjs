@@ -94,6 +94,13 @@ const server = createServer(async (req, res) => {
     if (!existsSync(f)) return json(res, 404, { error: "no hero" });
     return streamMp4(req, res, f);
   }
+  if ((req.method === "GET" || req.method === "HEAD") && p[0] === "hero.jpg") {
+    const f = path.join(ROOT, "public", "hero.jpg");
+    if (!existsSync(f)) return json(res, 404, { error: "no poster" });
+    res.writeHead(200, { "Content-Type": "image/jpeg", "Cache-Control": "public, max-age=86400" });
+    if (req.method === "HEAD") return res.end();
+    return createReadStream(f).pipe(res);
+  }
   if ((req.method === "GET" || req.method === "HEAD") && p[0] === "crew" && p[1]) {
     const f = path.join(ROOT, "public", "crew", path.basename(p[1]));
     if (!existsSync(f)) return json(res, 404, { error: "no avatar" });
