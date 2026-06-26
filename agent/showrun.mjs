@@ -11,7 +11,8 @@ import { voiceForShot, voiceForScene } from "./voice.mjs";
 import { editorPlan, assembleEdit } from "./editor.mjs";
 import { buildSegment, concat, finalize } from "./stitch.mjs";
 import { video, download } from "../lib/qwen.mjs";
-import { architect, storyReview } from "./story.mjs";
+import { architect, storyReview, contradictionCheck, replanBeats } from "./story.mjs";
+import { buildState, stateForScene, lockedFacts } from "./state.mjs";
 
 export async function showrun(input, { scenes = 3, source = "logline", maxScenes = 24, aspect = "16:9", outDir = "output/film", render = true, forceStrategy, voiceover = false, log = console.log, onEvent = () => {} } = {}) {
   const dir = path.resolve(outDir);
@@ -45,6 +46,22 @@ export async function showrun(input, { scenes = 3, source = "logline", maxScenes
   const spine = p.spine || p.logline || "";
   const theme = p.theme || "";
 
+  // ---- CONTINUITY BIBLE (typed, locked state) + contradiction guard ----
+  let storyState = null;
+  if ((p.scenes || []).length >= 2) {
+    try {
+      storyState = await buildState(p);
+      log(`state: ${storyState.characters.length} character record(s), ${storyState.worldRules.length} world rule(s), ${storyState.openThreads.length} open thread(s)`);
+      for (const f of lockedFacts(storyState).slice(0, 6)) log(`state: locked — ${f}`);
+      const cc = await contradictionCheck(p, storyState);
+      if (!cc.ok && cc.conflicts.length) {
+        for (const c of cc.conflicts.slice(0, 6)) log(`contradiction: S${c.id} — ${c.issue} (violates: ${c.fact})`);
+        const rp = await replanBeats(p, storyState, cc.conflicts);
+        if (rp.ok) { p.scenes = rp.scenes; log(`replan: rewrote ${[...new Set(cc.conflicts.map((c) => c.id))].length} beat(s) to resolve contradiction(s)`); }
+      } else { log(`continuity: no contradictions found`); }
+    } catch (e) { log(`state: error — ${e.message}`); }
+  }
+
   // ---- NARRATION: the Story Architect decides whether the FORM wants a narrator (noir, doc, fable...) ----
   const nar = p.narration || {};
   const useVO = voiceover || nar.mode === "voiceover";
@@ -61,6 +78,7 @@ export async function showrun(input, { scenes = 3, source = "logline", maxScenes
     const storySoFar = [
       theme ? `Theme: ${theme}` : "",
       spine ? `Story spine: ${spine}` : "",
+      stateForScene(storyState, scene),
       priorBeats.length ? `Story so far: ${priorBeats.slice(-10).join(" → ")}` : "This is the opening of the film.",
       `This scene${scene.function ? ` (${scene.function})` : ""}: ${scene.beat}`
     ].filter(Boolean).join("\n");
@@ -75,7 +93,7 @@ export async function showrun(input, { scenes = 3, source = "logline", maxScenes
     priorBeats.push(`S${scene.id} ${String(scene.beat || "").replace(/\s+/g, " ").slice(0, 70)}`);
     log(`  scene ${scene.id} [${strat}] -> ${entries.length} shot(s)`);
   }
-  writeFileSync(path.join(dir, "storyboard.json"), JSON.stringify({ plan: p, scenes: scenesPlan }, null, 2));
+  writeFileSync(path.join(dir, "storyboard.json"), JSON.stringify({ plan: p, state: storyState, scenes: scenesPlan }, null, 2));
 
   // Register storyboard panels up front so the UI shows the board filling in live.
   const MAX_REFS = +(process.env.QWEN_MAX_REFS || 8);
