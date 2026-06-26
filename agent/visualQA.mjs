@@ -20,7 +20,7 @@ export async function reviewStill(imageUrl, imagePrompt, { model = "qwen3-vl-plu
 }
 
 // Generate -> QA -> LEGAL clearance -> regenerate (feeding fix hints + legal negatives back) until pass or maxRetries.
-export async function approvedStill(imagePrompt, { maxRetries = 3, size, onStep, onLegal, referenceUrl } = {}) {
+export async function approvedStill(imagePrompt, { maxRetries = 3, size, onStep, onLegal, referenceUrl, seed, promptExtend = false } = {}) {
   const baseNeg = "text, words, letters, captions, subtitles, signage, watermark, logo, garbled text, distorted typography, copyrighted character, trademarked franchise character, superhero costume, masked vigilante in spandex, web-pattern bodysuit, comic-book emblem, cape, branded logo, mascot, celebrity likeness, nsfw, nudity, gore";
   let history = [], best = null, bestScore = -Infinity, last = null;
   for (let attempt = 1; attempt <= maxRetries + 1; attempt++) {
@@ -35,21 +35,22 @@ export async function approvedStill(imagePrompt, { maxRetries = 3, size, onStep,
       if (last.anatomy_ok === false) neg += ", deformed hands, extra fingers, distorted face, malformed limbs";
       if (last.legal_negative) neg += ", " + last.legal_negative;   // Legal-suggested negatives on the corrected reroll
     }
+    const genOpts = { negative_prompt: neg, prompt_extend: promptExtend, ...(size ? { size } : {}), ...(Number.isInteger(seed) ? { seed: seed + (attempt - 1) } : {}) };
     let im;
     try {
       im = referenceUrl
-        ? await imageEdit(referenceUrl, `Keep each referenced character's exact identity (face, hair, wardrobe, colors) from the reference image(s); render this shot, changing only the scene, pose, lighting, and framing: ${prompt}`, { negative_prompt: neg, ...(size ? { size } : {}) })
-        : await image(prompt, { negative_prompt: neg, ...(size ? { size } : {}) });
+        ? await imageEdit(referenceUrl, `Keep each referenced character's exact identity (face, hair, wardrobe, colors) from the reference image(s); render this shot, changing only the scene, pose, lighting, and framing: ${prompt}`, genOpts)
+        : await image(prompt, genOpts);
     } catch (e) {
       // Content-moderation / edit failure (e.g. DataInspectionFailed 400). Don't crash the job:
       // drop the (possibly flagged) reference and fall back to a clean, then sanitized, text-to-image.
       try {
-        im = await image(prompt, { negative_prompt: neg, ...(size ? { size } : {}) });
+        im = await image(prompt, genOpts);
       } catch (e2) {
         const safe = prompt.replace(/\b(spider|arachno\w*|web[-\s]?sling\w*|superhero|super-hero|costume|masked?|cape|emblem|insignia|logo|brand\w*)\b/gi, "")
                            .replace(/\s{2,}/g, " ").trim();
         try {
-          im = await image(`${safe} — original character design, plain modern clothing, safe for work`, { negative_prompt: neg, ...(size ? { size } : {}) });
+          im = await image(`${safe} — original character design, plain modern clothing, safe for work`, { ...genOpts, prompt_extend: true });
         } catch (e3) {
           const v = { pass: false, blocked: true, prompt_match: false, spelling_ok: true, anatomy_ok: true,
                       issues: ["blocked by content filter"], fix_hint: "use a plainer original safe-for-work design" };

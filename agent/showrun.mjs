@@ -11,7 +11,7 @@ import { voiceForShot, voiceForScene } from "./voice.mjs";
 import { editorPlan, assembleEdit } from "./editor.mjs";
 import { buildSegment, concat, finalize } from "./stitch.mjs";
 import { video, download } from "../lib/qwen.mjs";
-import { architect, storyReview, contradictionCheck, replanBeats } from "./story.mjs";
+import { architect, storyReview, contradictionCheck, replanBeats, identityReview } from "./story.mjs";
 import { buildState, stateForScene, lockedFacts } from "./state.mjs";
 
 export async function showrun(input, { scenes = 3, source = "logline", maxScenes = 24, aspect = "16:9", outDir = "output/film", render = true, forceStrategy, voiceover = false, log = console.log, onEvent = () => {} } = {}) {
@@ -120,7 +120,7 @@ export async function showrun(input, { scenes = 3, source = "logline", maxScenes
     emit(pid, { status: "drawing" });
     const ref = await approvedStill(
       `Character model sheet of ${ch.name}: ${ch.description}. ${p.style}. Front view, head and shoulders, on a clean pure white seamless studio background, soft even lighting, subtle contact shadow only, no text.`,
-      { size: "1328*1328", maxRetries: 1,
+      { size: "1328*1328", maxRetries: 1, seed: seedOf("ref" + i),
         onStep: (a, v, url) => { log(`   ref ${ch.name} ${a}: pass=${v.pass}`); emit(pid, { status: v.pass ? "frame" : "drawing", stillUrl: url, attempt: a, pass: v.pass }); },
         onLegal: (a, lv) => log(`   ref ${ch.name} legal ${a}: ${lv.pass ? "clear" : "FLAG " + (lv.ip_issue || lv.text_issue || "issue")}`) });
     if (ref.url) { refByName[ch.name] = ref.url; emit(pid, { status: "frame", stillUrl: ref.url }); await download(ref.url, path.join(dir, `character_ref_${i}.png`)); }
@@ -147,7 +147,7 @@ export async function showrun(input, { scenes = 3, source = "logline", maxScenes
   log(`storyboard: ${units.length} panels (stills x${STILL_CC} parallel)`);
   await mapLimit(units, STILL_CC, async (u) => {
     const imgPrompt = `${u.prompts.image_prompt}. Overall style: ${p.style}`;
-    const still = await approvedStill(imgPrompt, { referenceUrl: pickRefs(u, refByName, referenceUrl), size: STILL_SIZE,
+    const still = await approvedStill(imgPrompt, { referenceUrl: pickRefs(u, refByName, referenceUrl), size: STILL_SIZE, seed: seedOf(u.id),
       onStep: (a, v, url) => { log(`   ${u.id} still ${a}: pass=${v.pass}`); emit(u.id, { status: v.pass ? "frame" : "drawing", stillUrl: url, attempt: a, pass: v.pass }); },
       onLegal: (a, lv) => { log(`   ${u.id} legal ${a}: ${lv.pass ? "clear" : "FLAG " + (lv.ip_issue || lv.text_issue || "issue")}`); emit(u.id, { legal: lv.pass ? "clear" : "flag" }); } });
     u.stillUrl = still.url;
@@ -172,11 +172,24 @@ export async function showrun(input, { scenes = 3, source = "logline", maxScenes
       const sr = await storyReview(p, toFrames(sampled));
       if (sr.ok) {
         log(`story-review: ${sr.review.tells_story ? "the frames tell the story" : "some frames miss the beat"}${sr.review.summary ? " — " + sr.review.summary : ""}`);
-        const issueById = new Map((sr.review.per_scene || []).map((x) => [x.id, x.issue]));
-        const weak = (sr.review.weak_panels || []).filter((sid) => sampleByScene.has(sid)).slice(0, 6);
-        for (const w of weak) log(`story-review: weak frame S${w}${issueById.get(w) ? " — " + issueById.get(w) : ""}`);
+        const issueById = new Map((sr.review.per_scene || []).filter((x) => x && Number.isFinite(+x.id)).map((x) => [+x.id, x.issue]));
+        let weakIds = (sr.review.weak_panels || []).filter((sid) => sampleByScene.has(sid));
+        for (const w of weakIds) log(`story-review: weak frame S${w}${issueById.get(w) ? " — " + issueById.get(w) : ""}`);
 
-        // ---- VERIFY -> FIX: re-roll ONLY the weak frames with Theo's note, once (bounded) ----
+        // ---- IDENTITY: do the characters still match their reference sheets? (objective re-roll trigger) ----
+        const idr = await identityReview(refByName, toFrames(sampled));
+        if (idr.ok) {
+          if (idr.review.consistent && !idr.review.drift.length) log(`identity: characters consistent with references`);
+          for (const d of idr.review.drift.slice(0, 6)) {
+            if (!sampleByScene.has(+d.id)) continue;
+            log(`identity: drift S${d.id}${d.character ? " (" + d.character + ")" : ""}${d.issue ? " — " + d.issue : ""}`);
+            if (!issueById.has(+d.id)) issueById.set(+d.id, `the character ${d.character || ""} looks different from their reference portrait — match the reference's face, hair and wardrobe exactly`);
+            if (!weakIds.includes(+d.id)) weakIds.push(+d.id);
+          }
+        }
+
+        // ---- VERIFY -> FIX: re-roll ONLY the weak frames (story + identity), once (bounded) ----
+        const weak = [...new Set(weakIds)].slice(0, 6);
         if (weak.length && process.env.QWEN_STORY_FIX !== "0") {
           log(`story-fix: re-rolling ${weak.length} weak frame(s)`);
           const fixedUnits = [];
@@ -186,7 +199,7 @@ export async function showrun(input, { scenes = 3, source = "logline", maxScenes
             const beat = beatById.get(sid) || "";
             const fixPrompt = `${u.prompts.image_prompt}. Overall style: ${p.style}. STORY FIX — the previous version failed because: ${issue}. This frame MUST clearly read as this story beat: ${beat}.`;
             emit(u.id, { status: "drawing", storyfix: true });
-            const re = await approvedStill(fixPrompt, { referenceUrl: pickRefs(u, refByName, referenceUrl), size: STILL_SIZE,
+            const re = await approvedStill(fixPrompt, { referenceUrl: pickRefs(u, refByName, referenceUrl), size: STILL_SIZE, seed: seedOf(u.id + "-fix"),
               onStep: (a, v, url) => { emit(u.id, { status: v.pass ? "frame" : "drawing", stillUrl: url, attempt: a, pass: v.pass }); },
               onLegal: (a, lv) => { emit(u.id, { legal: lv.pass ? "clear" : "flag" }); } });
             if (re.url) { u.stillUrl = re.url; emit(u.id, { status: "frame", stillUrl: re.url, storyfixed: true }); fixedUnits.push(u); log(`story-fix: S${sid} re-rolled`); }
@@ -290,6 +303,13 @@ async function mapLimit(items, n, fn) {
 function pickVoice(p, shot) {
   const ch = shot.dialogue?.[0]?.character;
   return (ch && p.characters?.find((c) => c.name === ch)?.voice) || p.characters?.[0]?.voice || "Cherry";
+}
+
+// Deterministic per-panel seed (FNV-1a) so a still is reproducible run-to-run; re-rolls offset the seed to vary.
+function seedOf(s) {
+  let h = 2166136261; const str = String(s);
+  for (let k = 0; k < str.length; k++) { h ^= str.charCodeAt(k); h = Math.imul(h, 16777619); }
+  return (h >>> 0) % 2147483647;
 }
 
 // Pick the reference image(s) for a shot: match the characters that actually appear in it

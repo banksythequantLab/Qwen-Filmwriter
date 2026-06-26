@@ -142,3 +142,28 @@ export async function replanBeats(plan, state, conflicts, { model = "qwen-max" }
     return { ok: true, scenes: merged };
   } catch (e) { return { ok: false, scenes: plan.scenes, error: e.message }; }
 }
+
+const IDENTITY_SYS = `You are a CONTINUITY SUPERVISOR checking that CHARACTERS look the same across a film's frames as in their reference portraits.
+The FIRST images are labeled CHARACTER REFERENCES (one per named character). The LATER images are SCENE FRAMES, each with its beat.
+For each scene frame, if a named character the beat implies is present, judge whether that character's FACE, HAIR, and WARDROBE clearly match their reference. Allow differences in lighting, camera angle, distance, and expression. Flag ONLY clear identity drift — a different-looking person, the wrong hair, or the wrong outfit on a main character.
+Return STRICT JSON ONLY (no markdown):
+{
+  "consistent": boolean,
+  "drift": [{"id": number, "character": string, "issue": string}]
+}`;
+
+// refByName: { name -> referenceUrl }; frames: [{ id, beat, url }] (caller samples/caps).
+export async function identityReview(refByName, frames, { model = "qwen3-vl-plus" } = {}) {
+  const refs = Object.entries(refByName || {}).filter(([, u]) => u).slice(0, 8);
+  const valid = (frames || []).filter((f) => f && f.url);
+  if (!refs.length || !valid.length) return { ok: false, review: null };
+  const images = [...refs.map(([, u]) => u), ...valid.map((f) => f.url)];
+  const refLegend = refs.map(([name], i) => `Image ${i + 1} = REFERENCE for ${name}`).join("\n");
+  const frameLegend = valid.map((f, i) => `Image ${refs.length + i + 1} = Scene ${f.id}: ${f.beat}`).join("\n");
+  const prompt = `${IDENTITY_SYS}\n\nCHARACTER REFERENCES:\n${refLegend}\n\nSCENE FRAMES:\n${frameLegend}`;
+  try {
+    const { text } = await see(images, prompt, { model, max_tokens: 1500 });
+    const r = parseJson(text);
+    return { ok: true, review: { consistent: r.consistent !== false, drift: Array.isArray(r.drift) ? r.drift : [] } };
+  } catch (e) { return { ok: false, review: null, error: e.message }; }
+}
