@@ -11,11 +11,13 @@ Return STRICT JSON ONLY (no markdown, no prose):
   "spine": string,                // the through-line as a causal chain: "X wants Y, and so... but then... therefore..."
   "narration": {"mode": "none"|"voiceover", "style": string, "voice": "Cherry"|"Ryan"|"Serena"|"Aiden"|"Vivian", "rationale": string},
   "style": string,                // global art direction (palette, grade, lens, era) — carried downstream for consistency
+  "motif": string,                // ONE recurring visual signature (a color accent, an object, or a lighting/shape motif) that threads through the film
   "characters": [{"name": string, "description": string, "voice": "Cherry"|"Ryan"|"Serena"|"Aiden"|"Vivian"}],
   "scenes": [{"id": number, "function": "setup"|"inciting"|"rising"|"midpoint"|"complication"|"climax"|"resolution", "beat": string, "setting": string, "causal": string, "intent": string, "narration": string}]
 }
 Use exactly {N} scenes that form ONE escalating arc: setup, an inciting turn, rising complications, a climax, a resolution.
 Each scene's "causal" states how it follows from the PREVIOUS scene using "therefore" or "but" — never a flat "and then". Stakes must rise across the film and the ending must pay off the setup.
+MOTIF — choose ONE concrete recurring visual signature that can plausibly reappear across many scenes (e.g. a single red object, rain on glass, a shaft of hard light, a specific color grade). It should reinforce the theme and make the film feel authored. Keep it specific and visual, not abstract.
 NARRATION — decide from the film's FORM whether a voiceover narrator serves the story. Choose "voiceover" when the form is lifted by a narrator's voice: a film-noir detective tale (first person, hardboiled, past tense), a nature or expository documentary (omniscient), a memoir, fable, or storybook (reflective, intimate). Choose "none" for dialogue- or action-driven pieces where narration would merely describe what we already see. When mode is "voiceover", write each scene's "narration" as ONE short line in that voice that carries the through-line forward — never just narrate the visible action — and pick a fitting "voice". When mode is "none", set every scene "narration" to "".
 Each scene is a STORY BEAT only — do NOT write shot, camera, or image details here.
 Describe recurring characters consistently so downstream stages keep them visually stable.
@@ -52,11 +54,13 @@ Return STRICT JSON ONLY (no markdown, no prose):
   "spine": string,                // the through-line as a causal chain: "X wants Y, and so... but then... therefore..."
   "narration": {"mode": "none"|"voiceover", "style": string, "voice": "Cherry"|"Ryan"|"Serena"|"Aiden"|"Vivian", "rationale": string},
   "style": string,
+  "motif": string,                // ONE recurring visual signature drawn from the prose (a color, object, or light) that threads through the film
   "characters": [{"name": string, "description": string, "voice": "Cherry"|"Ryan"|"Serena"|"Aiden"|"Vivian"}],
   "scenes": [{"id": number, "function": "setup"|"inciting"|"rising"|"midpoint"|"complication"|"climax"|"resolution", "beat": string, "setting": string, "causal": string, "intent": string, "narration": string}]
 }
 Rules:
 - FAITHFUL adaptation: keep the source's characters, events, order, and mood. Do NOT invent major plot.
+- MOTIF: pick ONE concrete recurring visual signature already present or implied in the passage (a specific object, color, or quality of light) to thread across scenes so the film feels authored.
 - NARRATION: judge from the PROSE whether a voiceover narrator fits. First-person source → first-person "voiceover"; literary/descriptive third-person → omniscient "voiceover"; heavily dialogue-driven scenes → "none". When "voiceover", draw each scene's "narration" line from the passage's own narrating voice (lightly paraphrased, one short line, advancing the through-line); when "none", set every scene "narration" to "".
 - Decide the NUMBER of scenes from the material: one scene per distinct beat, location change, or dramatic turn. Use as many as the passage truly needs, but NO MORE THAN {MAX}.
 - Tag each scene's dramatic "function" within the passage's arc, and write "causal": how this scene follows from the previous one using "therefore" or "but" (never a flat "and then").

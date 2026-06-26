@@ -52,6 +52,7 @@ export async function showrun(input, { scenes = 3, source = "logline", maxScenes
   if (nar.mode === "voiceover") log(`narration: voiceover${nar.style ? ` · ${nar.style}` : ""}${nar.voice ? ` · ${nar.voice}` : ""}${nar.rationale ? ` — ${nar.rationale}` : ""}`);
   else if (voiceover) log(`narration: voiceover (requested)`);
   else log(`narration: none — letting the pictures and native audio carry it`);
+  if (p.motif) log(`motif: ${p.motif}`);
 
   // Expand: scene -> { strategy, shots(+prompts) }. Carry a running "story so far" into every shot.
   const scenesPlan = [];
@@ -66,7 +67,7 @@ export async function showrun(input, { scenes = 3, source = "logline", maxScenes
     const { strategy, shots } = await shotlist(scene, { style: p.style, characters: p.characters, title: p.title });
     const entries = [];
     for (const shot of shots) {
-      const prompts = await promptgen(shot, { style: p.style, characters: p.characters, setting: scene.setting, beat: scene.beat, intent: scene.intent, title: p.title, storySoFar });
+      const prompts = await promptgen(shot, { style: p.style, characters: p.characters, setting: scene.setting, beat: scene.beat, intent: scene.intent, title: p.title, storySoFar, motif: p.motif });
       entries.push({ shot, prompts });
     }
     const strat = forceStrategy || (entries.length >= 2 ? strategy : "montage");
