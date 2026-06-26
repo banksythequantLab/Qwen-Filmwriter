@@ -13,6 +13,8 @@ import { buildSegment, concat, finalize } from "./stitch.mjs";
 import { video, download } from "../lib/qwen.mjs";
 import { architect, storyReview, contradictionCheck, replanBeats, identityReview } from "./story.mjs";
 import { buildState, stateForScene, lockedFacts } from "./state.mjs";
+import { throughline } from "./throughline.mjs";
+import { composeStorySoFar, rollingSummarize } from "./memory.mjs";
 
 export async function showrun(input, { scenes = 3, source = "logline", maxScenes = 24, aspect = "16:9", outDir = "output/film", render = true, forceStrategy, voiceover = false, log = console.log, onEvent = () => {} } = {}) {
   const dir = path.resolve(outDir);
@@ -62,6 +64,22 @@ export async function showrun(input, { scenes = 3, source = "logline", maxScenes
     } catch (e) { log(`state: error — ${e.message}`); }
   }
 
+  // ---- THROUGH-LINE critic: central dramatic question + per-scene MUST-SHOW visual requirements ----
+  // mustShow is injected into promptgen so the key story element actually gets rendered (the comet
+  // is shown as a comet, the malfunction is visibly a malfunction) instead of drifting to a generic image.
+  let mustShowById = {};
+  if ((p.scenes || []).length >= 2) {
+    try {
+      const tl = await throughline(p);
+      if (tl.ok) {
+        mustShowById = tl.mustShow || {};
+        if (tl.question) log(`throughline: central question — ${tl.question}`);
+        for (const b of (tl.breaks || []).slice(0, 4)) log(`throughline: break S${b.id} — ${b.issue}`);
+        log(`throughline: ${Object.keys(mustShowById).length} scene(s) carry must-show requirements`);
+      } else { log(`throughline: skipped`); }
+    } catch (e) { log(`throughline: error — ${e.message}`); }
+  }
+
   // ---- NARRATION: the Story Architect decides whether the FORM wants a narrator (noir, doc, fable...) ----
   const nar = p.narration || {};
   const useVO = voiceover || nar.mode === "voiceover";
@@ -71,29 +89,33 @@ export async function showrun(input, { scenes = 3, source = "logline", maxScenes
   else log(`narration: none — letting the pictures and native audio carry it`);
   if (p.motif) log(`motif: ${p.motif}`);
 
-  // Expand: scene -> { strategy, shots(+prompts) }. Carry a running "story so far" into every shot.
+  // Expand: scene -> { strategy, shots(+prompts) }. Carry a lean, retrieval-based "story so far"
+  // into every shot, with a rolling summary folding older beats in on long films (memory at scale).
   const scenesPlan = [];
   const priorBeats = [];
+  let rollSummary = "";
   for (const scene of p.scenes) {
     const storySoFar = [
       theme ? `Theme: ${theme}` : "",
       spine ? `Story spine: ${spine}` : "",
       stateForScene(storyState, scene),
-      priorBeats.length ? `Story so far: ${priorBeats.slice(-10).join(" → ")}` : "This is the opening of the film.",
+      composeStorySoFar(scene, priorBeats, { recent: 6, relevant: 3, summary: rollSummary }),
       `This scene${scene.function ? ` (${scene.function})` : ""}: ${scene.beat}`
     ].filter(Boolean).join("\n");
     const { strategy, shots } = await shotlist(scene, { style: p.style, characters: p.characters, title: p.title });
     const entries = [];
     for (const shot of shots) {
-      const prompts = await promptgen(shot, { style: p.style, characters: p.characters, setting: scene.setting, beat: scene.beat, intent: scene.intent, title: p.title, storySoFar, motif: p.motif });
+      const prompts = await promptgen(shot, { style: p.style, characters: p.characters, setting: scene.setting, beat: scene.beat, intent: scene.intent, title: p.title, storySoFar, motif: p.motif, mustShow: mustShowById[scene.id] || [] });
       entries.push({ shot, prompts });
     }
     const strat = forceStrategy || (entries.length >= 2 ? strategy : "montage");
     scenesPlan.push({ scene, strategy: strat, shots: entries });
     priorBeats.push(`S${scene.id} ${String(scene.beat || "").replace(/\s+/g, " ").slice(0, 70)}`);
+    // Long films only: recompress the older beats into a rolling summary every few scenes (bounded).
+    if (priorBeats.length > 8 && priorBeats.length % 3 === 0) rollSummary = await rollingSummarize(priorBeats.slice(0, -6));
     log(`  scene ${scene.id} [${strat}] -> ${entries.length} shot(s)`);
   }
-  writeFileSync(path.join(dir, "storyboard.json"), JSON.stringify({ plan: p, state: storyState, scenes: scenesPlan }, null, 2));
+  writeFileSync(path.join(dir, "storyboard.json"), JSON.stringify({ plan: p, state: storyState, mustShow: mustShowById, scenes: scenesPlan }, null, 2));
 
   // Register storyboard panels up front so the UI shows the board filling in live.
   const MAX_REFS = +(process.env.QWEN_MAX_REFS || 8);

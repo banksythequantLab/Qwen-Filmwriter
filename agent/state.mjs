@@ -26,6 +26,11 @@ export async function buildState(plan, { model = "qwen-plus" } = {}) {
     characters: (plan.characters || []).map((c) => ({ name: c.name, description: c.description })),
     scenes: (plan.scenes || []).map((s) => ({ id: s.id, function: s.function, beat: s.beat, causal: s.causal }))
   };
+  // Always-on fallback: seed character records straight from the plan's cast so the bible is
+  // never empty even when the extractor under-returns (e.g. gritty content partially refused).
+  const fromPlan = () => (plan.characters || [])
+    .filter((c) => c && c.name)
+    .map((c) => ({ name: c.name, locked: [], facts: [c.description].filter(Boolean) }));
   try {
     const { text } = await chat(
       [{ role: "system", content: STATE_SYS },
@@ -33,13 +38,14 @@ export async function buildState(plan, { model = "qwen-plus" } = {}) {
       { model, temperature: 0.3, max_tokens: 2000 }
     );
     const s = parseJson(text);
+    const characters = Array.isArray(s.characters) && s.characters.length ? s.characters : fromPlan();
     return {
-      characters: Array.isArray(s.characters) ? s.characters : [],
+      characters,
       worldRules: Array.isArray(s.worldRules) ? s.worldRules : [],
       timeline: Array.isArray(s.timeline) ? s.timeline : [],
       openThreads: Array.isArray(s.openThreads) ? s.openThreads : []
     };
-  } catch { return { characters: [], worldRules: [], timeline: [], openThreads: [] }; }
+  } catch { return { characters: fromPlan(), worldRules: [], timeline: [], openThreads: [] }; }
 }
 
 // Compact, scene-relevant slice for prompt injection (keeps context lean).
