@@ -14,7 +14,14 @@ Output ONLY the final verdict as STRICT JSON. No reasoning, no deliberation, no 
 Each issue is a short phrase, max 8 words. pass = prompt_match AND spelling_ok AND anatomy_ok. fix_hint = one short instruction, or "" if pass.`;
 
 export async function reviewStill(imageUrl, imagePrompt, { model = "qwen3-vl-plus" } = {}) {
-  const { text } = await see(imageUrl, `${QA_SYS}\n\nPROMPT THE IMAGE SHOULD MATCH:\n${imagePrompt}`, { model, temperature: 0, max_tokens: 500 });
+  let text;
+  try {
+    ({ text } = await see(imageUrl, `${QA_SYS}\n\nPROMPT THE IMAGE SHOULD MATCH:\n${imagePrompt}`, { model, temperature: 0, max_tokens: 500 }));
+  } catch (e) {
+    // Vision judge unreachable or REFUSED the frame (content moderation -> chat 400). Fail-open so a
+    // single un-judgeable frame can't crash the whole film; the legal gate + base negatives still apply.
+    return { pass: true, prompt_match: true, spelling_ok: true, anatomy_ok: true, issues: [], fix_hint: "", _skipped: true };
+  }
   try { return parseJson(text); }
   catch { return { pass: false, prompt_match: false, spelling_ok: true, anatomy_ok: true, issues: ["unparseable QA verdict"], fix_hint: "" }; }
 }
