@@ -55,6 +55,11 @@ const server = createServer(async (req, res) => {
     if (existsSync(f)) { res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" }); return res.end(readFileSync(f)); }
     return json(res, 200, { service: "filmwriter" });
   }
+  if (req.method === "GET" && p[0] === "landing") {
+    const f = path.join(ROOT, "landing", "index.html");
+    if (existsSync(f)) { res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" }); return res.end(readFileSync(f)); }
+    return json(res, 404, { error: "no landing" });
+  }
   if (req.method === "GET" && p[0] === "api")
     return json(res, 200, { service: "filmwriter", endpoints: ["POST /showrun", "GET /jobs/:id", "GET /jobs/:id/film", "GET /gallery", "GET /gallery/:id/film"], active: jobs.size });
 
