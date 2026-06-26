@@ -14,7 +14,9 @@ async function ff(args) {
 }
 
 const SCALE = "scale=1280:720:force_original_aspect_ratio=decrease,pad=1280:720:(ow-iw)/2:(oh-ih)/2,setsar=1,fps=30";
-const ENC = ["-c:v", "libx264", "-pix_fmt", "yuv420p", "-preset", "veryfast", "-c:a", "aac", "-ar", "44100", "-ac", "2", "-shortest"];
+// CRF-with-VBV: quality-targeted but peak-capped at 6 Mbps so grainy footage can't balloon the
+// bitrate (was unbounded -> 77MB+/scene, pinning the 2-vCPU box). Keeps files + encode time sane.
+const ENC = ["-c:v", "libx264", "-pix_fmt", "yuv420p", "-preset", "veryfast", "-crf", "23", "-maxrate", "6M", "-bufsize", "12M", "-c:a", "aac", "-ar", "44100", "-ac", "2", "-shortest"];
 
 // Probe whether a media file carries an audio stream.
 export async function hasAudio(p) {
@@ -67,5 +69,5 @@ export async function finalize(inPath, outPath, { fadeIn = 0.6, fadeOut = 0.8 } 
   const dur = parseFloat(stdout) || 0;
   const outStart = Math.max(0, dur - fadeOut).toFixed(2);
   const vf = `fade=t=in:st=0:d=${fadeIn},fade=t=out:st=${outStart}:d=${fadeOut}`;
-  await ff(["-i", inPath, "-vf", vf, "-c:v", "libx264", "-pix_fmt", "yuv420p", "-preset", "veryfast", "-c:a", "copy", outPath]);
+  await ff(["-i", inPath, "-vf", vf, "-c:v", "libx264", "-pix_fmt", "yuv420p", "-preset", "veryfast", "-crf", "23", "-maxrate", "6M", "-bufsize", "12M", "-c:a", "copy", outPath]);
 }
