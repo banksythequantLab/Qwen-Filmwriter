@@ -9,16 +9,10 @@ const PORT = process.env.PORT || 8787;
 const ROOT = process.cwd();
 const jobs = new Map();
 
-// Pre-rendered showcase films (so the hosted site is alive even when live render is paused).
-const GALLERY = [
-  { id: "station-escape", title: "Station Escape",          tag: "sci-fi action", file: "output/jobs/00c15d08/final.mp4" },
-  { id: "neon-chase",     title: "Neon Chase",              tag: "action",        file: "output/jobs/c4eacbdf/final.mp4" },
-  { id: "one-last-case",  title: "One Last Case",           tag: "noir",          file: "output/jobs/9bdf74c0/final.mp4" },
-  { id: "the-comet",      title: "The Comet",               tag: "drama",         file: "output/jobs/dbe660c3/final.mp4" },
-  { id: "neon-melancholia", title: "Neon Melancholia", tag: "long-take", file: "output/longtake_demo/final.mp4" },
-  { id: "dreams-of-neon",   title: "Dreams of Neon",   tag: "continuity", file: "output/continuity_film/final.mp4" },
-  { id: "dreams-montage",   title: "Dreams of Neon (montage)", tag: "montage", file: "output/film/final.mp4" },
-];
+// The /gallery handler already auto-discovers every finished film in output/jobs
+// with its real title, so this curated fallback stays empty to avoid duplicate
+// cards; add entries only for showcase films that live outside output/jobs.
+const GALLERY = [];
 
 const json = (res, code, obj) => { res.writeHead(code, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" }); res.end(JSON.stringify(obj)); };
 async function body(req) { const c = []; for await (const x of req) c.push(x); try { return JSON.parse(Buffer.concat(c).toString() || "{}"); } catch { return {}; } }
