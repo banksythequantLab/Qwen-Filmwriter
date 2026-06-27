@@ -122,7 +122,7 @@ export async function approvedStill(imagePrompt, { maxRetries = 3, size, onStep,
     let im;
     try {
       im = referenceUrl
-        ? await imageEdit(referenceUrl, `Keep each referenced character's exact identity (face, hair, wardrobe, colors) from the reference image(s); render this shot, changing only the scene, pose, lighting, and framing: ${prompt}`, genOpts)
+        ? await imageEdit(referenceUrl, `Keep each referenced character's exact identity (face, hair, wardrobe, colors) AND keep any referenced LOCATION's architecture, layout, palette, and time-of-day lighting from the reference image(s). Change ONLY the camera framing, the characters' poses, and the action to depict this shot: ${prompt}`, genOpts)
         : await image(prompt, genOpts);
     } catch (e) {
       // Content-moderation / edit failure (e.g. DataInspectionFailed 400). Don't crash the job:

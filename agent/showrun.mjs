@@ -156,6 +156,41 @@ export async function showrun(input, { scenes = 3, source = "logline", maxScenes
   }
   log(`references: ${Object.keys(refByName).length} of ${castToRef.length} character(s) anchored`);
 
+  // ---- LOCATION PLATES (#3 locked visual plates): one canonical establishing plate per distinct
+  // location, generated ONCE and reused as a reference for EVERY shot set there, so the place itself
+  // (architecture, palette, light) stops drifting shot to shot the way it did before.
+  const plateForScene = {};
+  if (process.env.QWEN_PLATES !== "0") {
+    const norm = (s) => String(s || "").replace(/\s+/g, " ").trim().toLowerCase();
+    const locs = new Map();
+    for (const s of (p.scenes || [])) {
+      const key = norm(s.setting) || `scene-${s.id}`;
+      if (!locs.has(key)) locs.set(key, { setting: s.setting || s.beat || "the location", ids: [] });
+      locs.get(key).ids.push(s.id);
+    }
+    const locList = [...locs.values()].slice(0, +(process.env.QWEN_MAX_PLATES || 6));
+    if (locList.length) {
+      log(`plates: locking ${locList.length} location plate(s)`);
+      locList.forEach((L, i) => emit(`plate_${i}`, { scene: 0, label: `Location · ${String(L.setting).slice(0, 40)}`, status: "pending" }));
+      await mapLimit(locList, 2, async (L) => {
+        const i = locList.indexOf(L), pid = `plate_${i}`;
+        emit(pid, { status: "drawing" });
+        const platePrompt = `Establishing wide shot of this location: ${L.setting}. Overall style: ${p.style}. Empty location, NO people, no characters, no figures anywhere. A clear establishing view that defines the architecture, layout, color palette, time of day, and lighting of this place. Cinematic, atmospheric, deep focus.`;
+        const plate = await approvedStill(platePrompt, { size: STILL_SIZE, maxRetries: 1, seed: seedOf("plate-" + i),
+          onStep: (a, v, url) => emit(pid, { status: v.pass ? "frame" : "drawing", stillUrl: url, attempt: a, pass: v.pass }),
+          onLegal: (a, lv) => log(`   plate ${i} legal ${a}: ${lv.pass ? "clear" : "FLAG"}`) });
+        if (plate.url) {
+          emit(pid, { status: "frame", stillUrl: plate.url });
+          await download(plate.url, path.join(dir, `location_plate_${i}.png`));
+          for (const sid of L.ids) plateForScene[sid] = plate.url;
+          log(`plate: ${String(L.setting).slice(0, 50)} \u2014 locked`);
+        } else log(`plate: ${String(L.setting).slice(0, 50)} \u2014 blocked, shots will self-anchor`);
+      });
+      log(`plates: ${Object.keys(plateForScene).length} scene(s) anchored to a location plate`);
+    }
+  }
+
+
   // ---- PHASE 1: STORYBOARD — generate every still in parallel (capped), board-first ----
   // imageEdit (subject-consistency) has a strict rate quota -> stills sequential by default;
   // video is the slow part and uses a separate quota -> parallelize that. Both env-tunable.
@@ -186,7 +221,7 @@ export async function showrun(input, { scenes = 3, source = "logline", maxScenes
   log(`storyboard: ${units.length} panels (stills x${STILL_CC} parallel)`);
   await mapLimit(units, STILL_CC, async (u) => {
     const imgPrompt = `${u.prompts.image_prompt}. Overall style: ${p.style}`;
-    const still = await approvedStill(imgPrompt, { referenceUrl: pickRefs(u, refByName, referenceUrl), size: STILL_SIZE, seed: seedOf(u.id),
+    const still = await approvedStill(imgPrompt, { referenceUrl: withPlate(pickRefs(u, refByName, plateForScene[u.sceneId] || referenceUrl), plateForScene[u.sceneId]), size: STILL_SIZE, seed: seedOf(u.id),
       storyNeed: needById[u.sceneId] || "", canon: canonById[u.sceneId] || "",
       onStep: (a, v, url) => { log(`   ${u.id} still ${a}: pass=${v.pass}`); emit(u.id, { status: v.pass ? "frame" : "drawing", stillUrl: url, attempt: a, pass: v.pass }); },
       onInspect: (kind, a, v, url) => { if (!v.pass && !v._skipped) { const det = (v.issues || v.missing || v.violations || []).slice(0, 2).join(", "); const lbl = kind === "coherence" ? "coherence" : kind === "bible" ? "bible" : "story-need"; log(`   ${u.id} ${lbl} ${a}: FLAG${det ? " \u2014 " + det : ""}`); emit(u.id, { [kind]: "flag" }); } },
@@ -485,6 +520,15 @@ function pickWeakDimension(dims) {
     if (lo === null || v < lo) { lo = v; k = key; }
   }
   return k;
+}
+
+// Append a locked LOCATION plate to a shot's character references so the place stays consistent
+// across every shot set there. Characters lead (identity first); the plate rides along, capped at 3.
+function withPlate(refs, plate) {
+  const base = refs || [];
+  if (!plate) return base.length ? base : null;
+  if (base.includes(plate)) return base.slice(0, 3);
+  return [...base, plate].slice(0, 3);
 }
 
 function pickVoice(p, shot) {
