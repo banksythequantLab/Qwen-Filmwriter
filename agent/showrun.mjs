@@ -317,8 +317,8 @@ export async function showrun(input, { scenes = 3, source = "logline", maxScenes
           log(`continuity: break ${prev.id} \u2192 ${cur.id}${det ? " \u2014 " + det : ""}`);
           emit(cur.id, { continuity: "flag" });
           if (process.env.QWEN_CONTINUITY_FIX === "0") continue;
-          const fixPrompt = `${cur.prompts.image_prompt}. Overall style: ${p.style}. CONTINUITY FIX \u2014 this shot directly follows the previous shot of the same scene and must visually match it. Keep consistent: ${det || "wardrobe, hair, lighting, location, and props"}. ${adj.fix_hint || ""}`.trim();
-          const refs = [prev.stillUrl, ...(pickRefs(cur, refByName, referenceUrl) || [])].slice(0, 3);
+          const fixPrompt = `MATCH THE PREVIOUS SHOT of this scene for continuity. The FIRST reference image IS that previous shot: keep its EXACT location, time of day, lighting, wardrobe colors, hair, and key props. Fix specifically: ${det || 'wardrobe color, lighting, location, props'}. ${adj.fix_hint || ''} Then render this next moment, changing only the camera framing and the action: ${cur.prompts.image_prompt}. Overall style: ${p.style}.`.trim();
+          const refs = [prev.stillUrl, plateForScene[cur.sceneId], ...(pickRefs(cur, refByName, referenceUrl) || [])].filter(Boolean).slice(0, 3);
           emit(cur.id, { status: "drawing", continuityfix: true });
           const re = await approvedStill(fixPrompt, { referenceUrl: refs, size: STILL_SIZE, seed: seedOf(cur.id + "-cont"),
             storyNeed: needById[cur.sceneId] || "", canon: canonById[cur.sceneId] || "",
@@ -328,6 +328,7 @@ export async function showrun(input, { scenes = 3, source = "logline", maxScenes
             const recheck = await adjacentContinuityReview(prev.stillUrl, re.url);   // keep only if it actually helped
             cur.stillUrl = re.url;
             if (recheck._skipped || recheck.continuous !== false) { fixed++; emit(cur.id, { status: "frame", stillUrl: re.url, continuityfixed: true }); log(`continuity: ${cur.id} re-rolled to match`); }
+            else if ((recheck.breaks || []).length < (adj.breaks || []).length) { fixed++; emit(cur.id, { status: "frame", stillUrl: re.url, continuityfixed: true }); log(`continuity: ${cur.id} improved (${(adj.breaks || []).length}->${(recheck.breaks || []).length} issue(s))`); }
             else { emit(cur.id, { status: "frame", stillUrl: re.url }); log(`continuity: ${cur.id} still imperfect after re-roll \u2014 kept closest`); }
           } else log(`continuity: ${cur.id} re-roll blocked \u2014 kept original`);
         }
