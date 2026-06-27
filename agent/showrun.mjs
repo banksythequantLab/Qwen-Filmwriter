@@ -8,6 +8,7 @@ import { shotlist } from "./shotlist.mjs";
 import { promptgen } from "./promptgen.mjs";
 import { approvedStill } from "./visualQA.mjs";
 import { adjacentContinuityReview } from "./continuity.mjs";
+import { clipReview, lastFrameDataUri } from "./clipQA.mjs";
 import { voiceForShot, voiceForScene } from "./voice.mjs";
 import { editorPlan, assembleEdit } from "./editor.mjs";
 import { buildSegment, concat, finalize } from "./stitch.mjs";
@@ -308,6 +309,9 @@ export async function showrun(input, { scenes = 3, source = "logline", maxScenes
   for (const u of units) { if (u.role === "cutaway" && u.stillUrl && !lastFrameForScene.has(u.sceneId)) lastFrameForScene.set(u.sceneId, u.stillUrl); }
   const KEYFRAME = process.env.QWEN_KEYFRAME !== "0";
   log(`animate: ${units.length} clips (video x${VIDEO_CC} parallel)${KEYFRAME ? " · keyframe spine takes" : ""}`);
+  const beatOf = (sid) => (p.scenes.find((s) => s.id === sid) || {}).beat || "";
+  let clipChecked = 0, clipFlagged = 0;
+  const CLIP_QA = process.env.QWEN_CLIP_QA !== "0";
   await mapLimit(units, VIDEO_CC, async (u) => {
     if (!u.stillUrl) { emit(u.id, { status: "blocked" }); return; }   // blocked still -> skip, keep the job alive
     emit(u.id, { status: "video_pending" });
@@ -338,7 +342,33 @@ export async function showrun(input, { scenes = 3, source = "logline", maxScenes
     emit(u.id, { status: "clip" });
     u.clipPath = path.join(dir, `clip_${u.id}.mp4`);
     await download(clip.url, u.clipPath);
+    // ---- CLIP QA (Feature 4): grade the MOTION — pull a late frame and check the take didn't morph the subject ----
+    if (CLIP_QA && u.stillUrl) {
+      try {
+        const frameUri = await lastFrameDataUri(u.clipPath);
+        const cr = await clipReview(u.stillUrl, frameUri, beatOf(u.sceneId));
+        if (!cr._skipped) {
+          clipChecked++;
+          if (!cr.pass) {
+            clipFlagged++;
+            const det = (cr.issues || []).slice(0, 2).join(", ");
+            log(`   ${u.id} clip-qa: FLAG${det ? " \u2014 " + det : ""}`);
+            emit(u.id, { clip: "flag" });
+            if (process.env.QWEN_CLIP_FIX === "1") {   // opt-in: one steadier re-animation from the same still
+              try {
+                const steadier = `${u.prompts.motion_prompt || "subtle natural motion"}. Keep the subject stable and on-model; ${cr.fix_hint || "no morphing, gentle camera move only"}.`;
+                const re = await video(steadier, { imageUrl: u.stillUrl, resolution: "720P", duration: u.shot.duration || u.takeDur, onTick });
+                await download(re.url, u.clipPath);
+                log(`   ${u.id} clip-qa: re-animated steadier`);
+                emit(u.id, { clip: "refixed" });
+              } catch (e) { log(`   ${u.id} clip-qa re-animate failed \u2014 kept original`); }
+            }
+          } else { emit(u.id, { clip: "ok" }); }
+        }
+      } catch (e) { log(`   ${u.id} clip-qa error \u2014 ${e.message}`); }
+    }
   });
+  if (CLIP_QA && clipChecked) { log(`clip-qa: ${clipFlagged} of ${clipChecked} take(s) flagged for motion issues`); signals.clips = { checked: clipChecked, flagged: clipFlagged }; }
 
   // ---- PHASE 3: ASSEMBLE — sequential local ffmpeg (EDL + narration + concat) ----
   const sceneClips = [];
