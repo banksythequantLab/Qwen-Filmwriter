@@ -178,13 +178,17 @@ export async function showrun(input, { scenes = 3, source = "logline", maxScenes
     const ms = mustShowById[s.id] || [];
     needById[s.id] = `Beat: ${String(s.beat || "").replace(/\s+/g, " ").slice(0, 160)}.` + (ms.length ? ` Must be visible: ${ms.join("; ")}.` : "");
   }
+  // Per-scene CANON for the continuity-bible inspector: the locked character/world facts relevant to
+  // this scene, so each still is checked against the film's established truth (wardrobe, props, rules).
+  const canonById = {};
+  for (const s of (p.scenes || [])) canonById[s.id] = storyState ? stateForScene(storyState, s) : "";
   log(`storyboard: ${units.length} panels (stills x${STILL_CC} parallel)`);
   await mapLimit(units, STILL_CC, async (u) => {
     const imgPrompt = `${u.prompts.image_prompt}. Overall style: ${p.style}`;
     const still = await approvedStill(imgPrompt, { referenceUrl: pickRefs(u, refByName, referenceUrl), size: STILL_SIZE, seed: seedOf(u.id),
-      storyNeed: needById[u.sceneId] || "",
+      storyNeed: needById[u.sceneId] || "", canon: canonById[u.sceneId] || "",
       onStep: (a, v, url) => { log(`   ${u.id} still ${a}: pass=${v.pass}`); emit(u.id, { status: v.pass ? "frame" : "drawing", stillUrl: url, attempt: a, pass: v.pass }); },
-      onInspect: (kind, a, v, url) => { if (!v.pass && !v._skipped) { const det = (v.issues || v.missing || []).slice(0, 2).join(", "); log(`   ${u.id} ${kind === "coherence" ? "coherence" : "story-need"} ${a}: FLAG${det ? " — " + det : ""}`); emit(u.id, { [kind]: "flag" }); } },
+      onInspect: (kind, a, v, url) => { if (!v.pass && !v._skipped) { const det = (v.issues || v.missing || v.violations || []).slice(0, 2).join(", "); const lbl = kind === "coherence" ? "coherence" : kind === "bible" ? "bible" : "story-need"; log(`   ${u.id} ${lbl} ${a}: FLAG${det ? " \u2014 " + det : ""}`); emit(u.id, { [kind]: "flag" }); } },
       onLegal: (a, lv) => { log(`   ${u.id} legal ${a}: ${lv.pass ? "clear" : "FLAG " + (lv.ip_issue || lv.text_issue || "issue")}`); emit(u.id, { legal: lv.pass ? "clear" : "flag" }); } });
     u.stillUrl = still.url;
     u.blocked = !still.url;
@@ -238,7 +242,7 @@ export async function showrun(input, { scenes = 3, source = "logline", maxScenes
             const fixPrompt = `${u.prompts.image_prompt}. Overall style: ${p.style}. STORY FIX — the previous version failed because: ${issue}. This frame MUST clearly read as this story beat: ${beat}.`;
             emit(u.id, { status: "drawing", storyfix: true });
             const re = await approvedStill(fixPrompt, { referenceUrl: pickRefs(u, refByName, referenceUrl), size: STILL_SIZE, seed: seedOf(u.id + "-fix"),
-              storyNeed: needById[sid] || "",
+              storyNeed: needById[sid] || "", canon: canonById[sid] || "",
               onStep: (a, v, url) => { emit(u.id, { status: v.pass ? "frame" : "drawing", stillUrl: url, attempt: a, pass: v.pass }); },
               onLegal: (a, lv) => { emit(u.id, { legal: lv.pass ? "clear" : "flag" }); } });
             if (re.url) { u.stillUrl = re.url; emit(u.id, { status: "frame", stillUrl: re.url, storyfixed: true }); fixedUnits.push(u); log(`story-fix: S${sid} re-rolled`); }
@@ -281,7 +285,7 @@ export async function showrun(input, { scenes = 3, source = "logline", maxScenes
           const refs = [prev.stillUrl, ...(pickRefs(cur, refByName, referenceUrl) || [])].slice(0, 3);
           emit(cur.id, { status: "drawing", continuityfix: true });
           const re = await approvedStill(fixPrompt, { referenceUrl: refs, size: STILL_SIZE, seed: seedOf(cur.id + "-cont"),
-            storyNeed: needById[cur.sceneId] || "",
+            storyNeed: needById[cur.sceneId] || "", canon: canonById[cur.sceneId] || "",
             onStep: (a, v, url) => { emit(cur.id, { status: v.pass ? "frame" : "drawing", stillUrl: url, attempt: a, pass: v.pass }); },
             onLegal: (a, lv) => { emit(cur.id, { legal: lv.pass ? "clear" : "flag" }); } });
           if (re.url) {

@@ -77,11 +77,33 @@ export async function storyNeedReview(imageUrl, storyNeed, imagePrompt, { model 
   catch { return { pass: false, conveys_beat: false, missing: ["unparseable story-need verdict"], fix_hint: "" }; }
 }
 
+// ---- INSPECTOR 3: CONTINUITY BIBLE — "does the frame obey the locked canon?" ----
+// state.mjs builds typed, LOCKED facts (a character's wardrobe/hair, key props, world rules). The
+// contradiction guard validates the PLAN against those facts; this validates the generated IMAGE
+// against them — rejecting a frame that puts the wrong outfit, prop, or world detail on screen.
+const BIBLE_SYS = `You are a CONTINUITY BIBLE auditor for an AI film. You see ONE generated still and a list of LOCKED story facts — the canon for this film (established character wardrobe/hair, key objects, and world rules). Judge ONLY whether the image VIOLATES a locked fact that is VISUALLY checkable in THIS frame. Ignore any fact that cannot be seen in a single still (a name, a backstory, a motive, an off-screen detail). Allow anything the facts do not constrain. Do not invent violations — only flag a clear, visible contradiction of a stated fact.
+Output ONLY strict JSON, no reasoning, no restating:
+{"pass": boolean, "violations": [string], "fix_hint": string}
+Each "violation" names ONE locked fact the image contradicts and how it differs (max 10 words). pass = no visually-checkable locked fact is violated. fix_hint = one short instruction to bring the frame back into canon, or "" if pass.`;
+
+export async function bibleReview(imageUrl, canon, { model = "qwen3-vl-plus" } = {}) {
+  if (!canon || !String(canon).trim()) return { pass: true, violations: [], fix_hint: "", _skipped: true };
+  let text;
+  try {
+    ({ text } = await see(imageUrl, `${BIBLE_SYS}\n\nLOCKED STORY FACTS (canon):\n${canon}`, { model, temperature: 0, max_tokens: 380 }));
+  } catch (e) {
+    return { pass: true, violations: [], fix_hint: "", _skipped: true };
+  }
+  try { const v = parseJson(text); if (!Array.isArray(v.violations)) v.violations = []; return v; }
+  catch { return { pass: true, violations: [], fix_hint: "", _skipped: true }; }
+}
+
 // Generate -> QA -> LEGAL clearance -> regenerate (feeding fix hints + legal negatives back) until pass or maxRetries.
-export async function approvedStill(imagePrompt, { maxRetries = 3, size, onStep, onLegal, onInspect, referenceUrl, seed, promptExtend = false, storyNeed = "" } = {}) {
+export async function approvedStill(imagePrompt, { maxRetries = 3, size, onStep, onLegal, onInspect, referenceUrl, seed, promptExtend = false, storyNeed = "", canon = "" } = {}) {
   const baseNeg = "text, words, letters, captions, subtitles, signage, watermark, logo, garbled text, distorted typography, copyrighted character, trademarked franchise character, superhero costume, masked vigilante in spandex, web-pattern bodysuit, comic-book emblem, cape, branded logo, mascot, celebrity likeness, nsfw, nudity, gore";
   const COHERENCE = process.env.QWEN_COHERENCE !== "0";       // physical-sanity inspector (on by default)
   const STORY_NEED = process.env.QWEN_STORY_NEED !== "0";     // per-frame story-need inspector (on by default)
+  const BIBLE = process.env.QWEN_BIBLE !== "0";               // continuity-bible (locked-canon) inspector (on by default)
   let history = [], best = null, bestScore = -Infinity, last = null;
   for (let attempt = 1; attempt <= maxRetries + 1; attempt++) {
     let prompt = imagePrompt, neg = baseNeg;
@@ -145,6 +167,17 @@ export async function approvedStill(imagePrompt, { maxRetries = 3, size, onStep,
         verdict.fix_hint = [sn.fix_hint, verdict.fix_hint].filter(Boolean).join("; ") || "make the frame clearly read as the story beat";
       }
     }
+    // INSPECTOR 3 — CONTINUITY BIBLE: does the frame obey the film's locked canon? (only when canon supplied)
+    if (verdict.pass && canon && BIBLE) {
+      const bib = await bibleReview(im.url, canon);
+      verdict.bible_ok = bib.pass;
+      if (onInspect) onInspect("bible", attempt, bib, im.url);
+      if (!bib.pass) {
+        verdict.pass = false;
+        verdict.issues = [...(verdict.issues || []), ...(bib.violations || [])];
+        verdict.fix_hint = [bib.fix_hint, verdict.fix_hint].filter(Boolean).join("; ") || "bring the frame back into the film's canon";
+      }
+    }
     // LEGAL & CLEARANCES gate — audit a still the inspectors already like for IP infringement + on-screen text.
     if (verdict.pass) {
       const legal = await legalReview(im.url, { intent: imagePrompt });
@@ -160,7 +193,7 @@ export async function approvedStill(imagePrompt, { maxRetries = 3, size, onStep,
     history.push({ attempt, url: im.url, verdict });
     if (onStep) onStep(attempt, verdict, im.url);
     let score = (verdict.prompt_match ? 2 : 0) + (verdict.anatomy_ok ? 1 : 0) + (verdict.spelling_ok ? 1 : 0)
-              + (verdict.coherence_ok === true ? 2 : 0) + (verdict.story_need_ok === true ? 1 : 0)
+              + (verdict.coherence_ok === true ? 2 : 0) + (verdict.story_need_ok === true ? 1 : 0) + (verdict.bible_ok === true ? 1 : 0)
               - (verdict.issues?.length || 0) * 0.1;
     if (verdict.coherence_ok === false) score -= 2;          // strongly disprefer physically broken frames as "best"
     if (verdict.legal_ok === false) score -= 5;              // never let an infringing still win "best"
