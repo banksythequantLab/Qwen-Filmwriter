@@ -27,7 +27,7 @@ export async function plan(logline, { scenes = 3, model = "qwen-max" } = {}) {
   const sys = SYS.replace("{N}", String(scenes));
   const { text, usage } = await chat(
     [{ role: "system", content: sys }, { role: "user", content: `Logline: ${logline}` }],
-    { model, temperature: 0.85, max_tokens: 2200 }
+    { model, temperature: 0.85, max_tokens: Math.max(2200, Math.min(8192, 1200 + scenes * 240)) }
   );
   return { plan: parseJson(text), usage };
 }
