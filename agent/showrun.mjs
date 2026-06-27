@@ -17,7 +17,7 @@ import { architect, storyReview, contradictionCheck, replanBeats, identityReview
 import { buildState, stateForScene, lockedFacts } from "./state.mjs";
 import { throughline } from "./throughline.mjs";
 import { composeStorySoFar, rollingSummarize } from "./memory.mjs";
-import { evaluate } from "./evaluate.mjs";
+import { evaluate, weakestFrame } from "./evaluate.mjs";
 
 export async function showrun(input, { scenes = 3, source = "logline", maxScenes = 24, aspect = "16:9", outDir = "output/film", render = true, forceStrategy, voiceover = false, log = console.log, onEvent = () => {} } = {}) {
   const dir = path.resolve(outDir);
@@ -302,6 +302,40 @@ export async function showrun(input, { scenes = 3, source = "logline", maxScenes
     } catch (e) { log(`continuity: error \u2014 ${e.message}`); }
   }
 
+  // ---- CLOSED-LOOP KPI (Feature 2): PRE-GRADE the storyboard; if a key dimension is weak, re-shoot the
+  // single weakest beat and RE-GRADE — the self-evaluation now has teeth instead of just being a report card.
+  // Runs on stills (before the expensive animate/assemble) so a correction lifts the final cut's KPI.
+  if (process.env.QWEN_RESHOOT !== "0") {
+    try {
+      const oneByScene = [...new Map(units.filter((u) => u.stillUrl).map((u) => [u.sceneId, u])).values()];
+      const preFrames = oneByScene.map((u) => u.stillUrl).slice(0, 8);
+      if (preFrames.length >= 2) {
+        const pre = await evaluate({ plan: p, signals, frames: preFrames });
+        const pd = pre.dimensions;
+        log(`pre-grade: KPI ${pre.score}/100 \u2014 continuity ${pd.continuity} \u00b7 identity ${pd.identity} \u00b7 beats ${pd.beats} \u00b7 through-line ${pd.throughline}${pd.craft != null ? ` \u00b7 craft ${pd.craft}` : ""}`);
+        const RESHOOT_AT = +(process.env.QWEN_RESHOOT_AT || 85);
+        const weakDim = pickWeakDimension(pd);
+        if (pre.score < RESHOOT_AT && weakDim) {
+          const wf = await weakestFrame(preFrames, weakDim);
+          const u = oneByScene[Math.min(oneByScene.length - 1, (wf.frame || 1) - 1)];
+          log(`reshoot: KPI ${pre.score} < ${RESHOOT_AT}; weakest dimension = ${weakDim} \u2192 re-shooting S${u.sceneId}${wf.why ? ` (${wf.why})` : ""}`);
+          const fixPrompt = `${u.prompts.image_prompt}. Overall style: ${p.style}. SELF-CRITIQUE FIX \u2014 the film graded weakest on ${weakDim}. ${wf.why || ""}. Make this key frame markedly stronger on ${weakDim}: a clear on-model subject, consistent continuity, and clearly on its story beat.`;
+          emit(u.id, { status: "drawing", reshoot: true });
+          const re = await approvedStill(fixPrompt, { referenceUrl: pickRefs(u, refByName, referenceUrl), size: STILL_SIZE, seed: seedOf(u.id + "-reshoot"),
+            storyNeed: needById[u.sceneId] || "", canon: canonById[u.sceneId] || "",
+            onStep: (a, v, url) => { emit(u.id, { status: v.pass ? "frame" : "drawing", stillUrl: url, attempt: a, pass: v.pass }); },
+            onLegal: (a, lv) => { emit(u.id, { legal: lv.pass ? "clear" : "flag" }); } });
+          if (re.url) {
+            u.stillUrl = re.url; emit(u.id, { status: "frame", stillUrl: re.url, reshot: true });
+            const post = await evaluate({ plan: p, signals, frames: oneByScene.map((x) => x.stillUrl).slice(0, 8) });
+            log(`re-grade: KPI ${pre.score} \u2192 ${post.score}/100 after re-shooting S${u.sceneId} (${weakDim} ${pd[weakDim]} \u2192 ${post.dimensions[weakDim]})`);
+            signals.reshoot = { dim: weakDim, scene: u.sceneId, before: pre.score, after: post.score };
+          } else log(`reshoot: re-roll blocked \u2014 kept original`);
+        } else log(`pre-grade: KPI ${pre.score} \u2265 ${RESHOOT_AT} \u2014 no re-shoot needed`);
+      }
+    } catch (e) { log(`reshoot: error \u2014 ${e.message}`); }
+  }
+
   // ---- PHASE 2: ANIMATE — dispatch videos with bounded concurrency (free-tier safe) ----
   // Longtake spine shots are keyframe-anchored: use the scene's first cutaway still as the "last
   // frame" so the take interpolates toward a real second composition (steadier than first-frame i2v).
@@ -441,6 +475,16 @@ async function mapLimit(items, n, fn) {
   });
   await Promise.all(workers);
   return ret;
+}
+
+// Lowest-scoring rubric dimension — the one a self-correction re-shoot should target.
+function pickWeakDimension(dims) {
+  let lo = null, k = null;
+  for (const key of ["continuity", "identity", "beats", "throughline", "craft"]) {
+    const v = dims[key]; if (v == null) continue;
+    if (lo === null || v < lo) { lo = v; k = key; }
+  }
+  return k;
 }
 
 function pickVoice(p, shot) {

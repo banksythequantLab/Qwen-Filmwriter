@@ -16,11 +16,15 @@ const clamp = (n) => Math.max(0, Math.min(100, Math.round(n)));
 export async function evaluate({ plan, signals = {}, frames = [] } = {}, { model = "qwen3-vl-plus" } = {}) {
   // ---- grounded sub-scores from the in-run QA signals ----
   const cont = signals.continuity || { conflicts: 0, resolved: true };
-  const continuity = clamp(
+  const clips = signals.clips || { checked: 0, flagged: 0 };
+  const imgUnresolved = Math.max(0, (cont.breaks || 0) - (cont.fixed || 0));   // adjacent-frame breaks left unfixed
+  let continuity = clamp(
     cont.conflicts === 0 ? 100
       : cont.resolved ? 100 - Math.min(20, 5 * cont.conflicts)     // found but auto-resolved -> light penalty
       : 100 - Math.min(60, 25 * cont.conflicts)                    // left unresolved -> heavy penalty
   );
+  // fold in IMAGE-level continuity (script supervisor) + MOTION (clip QA) findings so the graders move the KPI
+  continuity = clamp(continuity - Math.min(30, 8 * imgUnresolved) - Math.min(20, 6 * (clips.flagged || 0)));
 
   const tl = signals.throughline || { breaks: 0 };
   const throughline = clamp(100 - Math.min(45, 15 * (tl.breaks || 0)));
@@ -52,4 +56,18 @@ export async function evaluate({ plan, signals = {}, frames = [] } = {}, { model
   const summary = critique
     || `continuity ${continuity}, identity ${identity}, beats ${beats}, through-line ${throughline}${craft != null ? `, craft ${craft}` : ""}`;
   return { score, dimensions: dims, summary, critique };
+}
+
+// Closed-loop helper: given the film's key frames IN ORDER and the weakest rubric dimension, name the
+// single frame that most needs a re-shoot. The conductor uses this to target self-correction.
+export async function weakestFrame(frames = [], dim = "craft", { model = "qwen3-vl-plus" } = {}) {
+  const urls = (frames || []).filter(Boolean).slice(0, 8);
+  if (urls.length < 2) return { frame: 1, why: "" };
+  try {
+    const sys = `You are a film editor. You see a short film's key frames IN ORDER (frame 1 to ${urls.length}). The film scored WEAKEST on "${dim}". Name the SINGLE frame number that most needs to be re-shot to raise ${dim}. Return STRICT JSON ONLY (no markdown): {"frame": number, "why": string} — why max 12 words.`;
+    const { text } = await see(urls, sys, { model, temperature: 0, max_tokens: 120 });
+    const r = parseJson(text);
+    const frame = Math.max(1, Math.min(urls.length, Math.round(+r.frame) || 1));
+    return { frame, why: String(r.why || "").slice(0, 140) };
+  } catch { return { frame: 1, why: "" }; }
 }
