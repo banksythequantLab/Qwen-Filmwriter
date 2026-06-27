@@ -7,6 +7,7 @@ import { adapt } from "./planner.mjs";
 import { shotlist } from "./shotlist.mjs";
 import { promptgen } from "./promptgen.mjs";
 import { approvedStill } from "./visualQA.mjs";
+import { adjacentContinuityReview } from "./continuity.mjs";
 import { voiceForShot, voiceForScene } from "./voice.mjs";
 import { editorPlan, assembleEdit } from "./editor.mjs";
 import { buildSegment, concat, finalize } from "./stitch.mjs";
@@ -256,6 +257,45 @@ export async function showrun(input, { scenes = 3, source = "logline", maxScenes
       } else { log(`story-review: skipped`); }
     }
   } catch (e) { log(`story-review: error — ${e.message}`); }
+
+  // ---- SCRIPT SUPERVISOR: adjacent-frame continuity — grade each CUT, re-roll the later frame on a break ----
+  // Per-frame inspectors judge a still alone; this walks the film IN ORDER and judges each PAIR of
+  // consecutive frames together (wardrobe, location, lighting, props, identity carrying across the cut).
+  // A fixed frame becomes the anchor for the next pair, so a correction propagates forward.
+  if (process.env.QWEN_CONTINUITY !== "0") {
+    try {
+      const seq = units.filter((u) => u.stillUrl && !u.blocked);   // renderable frames, in film order
+      if (seq.length >= 2) {
+        log(`continuity: script supervisor reviewing ${seq.length - 1} cut(s)`);
+        let breaks = 0, fixed = 0;
+        for (let i = 1; i < seq.length; i++) {
+          const prev = seq[i - 1], cur = seq[i];
+          const adj = await adjacentContinuityReview(prev.stillUrl, cur.stillUrl);
+          if (adj._skipped || adj.continuous !== false) continue;
+          breaks++;
+          const det = (adj.breaks || []).slice(0, 3).join(", ");
+          log(`continuity: break ${prev.id} \u2192 ${cur.id}${det ? " \u2014 " + det : ""}`);
+          emit(cur.id, { continuity: "flag" });
+          if (process.env.QWEN_CONTINUITY_FIX === "0") continue;
+          const fixPrompt = `${cur.prompts.image_prompt}. Overall style: ${p.style}. CONTINUITY FIX \u2014 this shot directly follows the previous shot of the same scene and must visually match it. Keep consistent: ${det || "wardrobe, hair, lighting, location, and props"}. ${adj.fix_hint || ""}`.trim();
+          const refs = [prev.stillUrl, ...(pickRefs(cur, refByName, referenceUrl) || [])].slice(0, 3);
+          emit(cur.id, { status: "drawing", continuityfix: true });
+          const re = await approvedStill(fixPrompt, { referenceUrl: refs, size: STILL_SIZE, seed: seedOf(cur.id + "-cont"),
+            storyNeed: needById[cur.sceneId] || "",
+            onStep: (a, v, url) => { emit(cur.id, { status: v.pass ? "frame" : "drawing", stillUrl: url, attempt: a, pass: v.pass }); },
+            onLegal: (a, lv) => { emit(cur.id, { legal: lv.pass ? "clear" : "flag" }); } });
+          if (re.url) {
+            const recheck = await adjacentContinuityReview(prev.stillUrl, re.url);   // keep only if it actually helped
+            cur.stillUrl = re.url;
+            if (recheck._skipped || recheck.continuous !== false) { fixed++; emit(cur.id, { status: "frame", stillUrl: re.url, continuityfixed: true }); log(`continuity: ${cur.id} re-rolled to match`); }
+            else { emit(cur.id, { status: "frame", stillUrl: re.url }); log(`continuity: ${cur.id} still imperfect after re-roll \u2014 kept closest`); }
+          } else log(`continuity: ${cur.id} re-roll blocked \u2014 kept original`);
+        }
+        log(`continuity: ${breaks} break(s) found, ${fixed} fixed across ${seq.length - 1} cut(s)`);
+        signals.continuity = { ...(signals.continuity || {}), cuts: seq.length - 1, breaks, fixed };
+      }
+    } catch (e) { log(`continuity: error \u2014 ${e.message}`); }
+  }
 
   // ---- PHASE 2: ANIMATE — dispatch videos with bounded concurrency (free-tier safe) ----
   // Longtake spine shots are keyframe-anchored: use the scene's first cutaway still as the "last
