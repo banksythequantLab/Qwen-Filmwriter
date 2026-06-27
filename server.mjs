@@ -131,7 +131,7 @@ const server = createServer(async (req, res) => {
       if (job.status !== "done" || !job.finalPath || !existsSync(job.finalPath)) return json(res, 409, { status: job.status });
       return streamMp4(req, res, job.finalPath);
     }
-    return json(res, 200, { id: job.id, status: job.status, title: job.title, input: job.input, source: job.source, scenes: job.scenes, error: job.error, log: job.log.slice(-80), panels: Object.values(job.panels), film: job.status === "done" ? `/jobs/${job.id}/film` : null });
+    return json(res, 200, { id: job.id, status: job.status, title: job.title, input: job.input, source: job.source, scenes: job.scenes, error: job.error, log: job.log.slice(-300), panels: Object.values(job.panels), film: job.status === "done" ? `/jobs/${job.id}/film` : null });
   }
   json(res, 404, { error: "not found" });
 });
