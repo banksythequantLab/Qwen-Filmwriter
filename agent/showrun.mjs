@@ -192,6 +192,29 @@ export async function showrun(input, { scenes = 3, source = "logline", maxScenes
   }
 
 
+  // ---- PROP REFERENCES (QWEN_PROPREFS=1): one canonical reference image per recurring prop, on a
+  // clean white background, reused as a reference for the shots that feature it — so objects (a
+  // package, a device, a weapon) stop drifting shot to shot the way wardrobe did before full-body refs.
+  const propRefByName = {};
+  if (process.env.QWEN_PROPREFS === "1" && Array.isArray(storyState?.props) && storyState.props.length) {
+    const props = storyState.props.slice(0, +(process.env.QWEN_MAX_PROPS || 4));
+    log(`props: locking ${props.length} prop reference(s)`);
+    props.forEach((pr, i) => emit(`prop_${i}`, { scene: 0, label: `Prop \u00b7 ${String(pr.name).slice(0, 40)}`, status: "pending" }));
+    await mapLimit(props, 2, async (pr) => {
+      const i = props.indexOf(pr), pid = `prop_${i}`;
+      emit(pid, { status: "drawing" });
+      const prompt = `Product reference photo of a single object: ${pr.name} \u2014 ${pr.look}. Centered, the whole object clearly visible, on a clean pure white seamless studio background, soft even lighting, subtle contact shadow only, no people, no hands, no text.`;
+      try {
+        const ref = await approvedStill(prompt, { size: "1328*1328", maxRetries: 1, seed: seedOf("prop-" + i),
+          onStep: (a, v, url) => emit(pid, { status: v.pass ? "frame" : "drawing", stillUrl: url, attempt: a, pass: v.pass }),
+          onLegal: (a, lv) => log(`   prop ${i} legal ${a}: ${lv.pass ? "clear" : "FLAG"}`) });
+        if (ref.url) { propRefByName[String(pr.name).toLowerCase()] = ref.url; emit(pid, { status: "frame", stillUrl: ref.url }); await download(ref.url, path.join(dir, `prop_ref_${i}.png`)); log(`prop: ${String(pr.name).slice(0, 40)} \u2014 locked`); }
+        else log(`prop: ${String(pr.name).slice(0, 40)} \u2014 blocked, shots will self-anchor`);
+      } catch (e) { log(`prop: ${String(pr.name).slice(0, 40)} \u2014 error ${e.message}`); }
+    });
+    log(`props: ${Object.keys(propRefByName).length} prop(s) anchored`);
+  }
+
   // ---- PHASE 1: STORYBOARD — generate every still in parallel (capped), board-first ----
   // imageEdit (subject-consistency) has a strict rate quota -> stills sequential by default;
   // video is the slow part and uses a separate quota -> parallelize that. Both env-tunable.
@@ -222,7 +245,7 @@ export async function showrun(input, { scenes = 3, source = "logline", maxScenes
   log(`storyboard: ${units.length} panels (stills x${STILL_CC} parallel)`);
   await mapLimit(units, STILL_CC, async (u) => {
     const imgPrompt = `${u.prompts.image_prompt}. Overall style: ${p.style}`;
-    const still = await approvedStill(imgPrompt, { referenceUrl: withPlate(pickRefs(u, refByName, plateForScene[u.sceneId] || referenceUrl), plateForScene[u.sceneId]), size: STILL_SIZE, seed: seedOf(u.id),
+    const still = await approvedStill(imgPrompt, { referenceUrl: (process.env.QWEN_PROPREFS === "1" ? withRefs(pickRefs(u, refByName, plateForScene[u.sceneId] || referenceUrl), plateForScene[u.sceneId], pickPropRefs(u, propRefByName)) : withPlate(pickRefs(u, refByName, plateForScene[u.sceneId] || referenceUrl), plateForScene[u.sceneId])), size: STILL_SIZE, seed: seedOf(u.id),
       storyNeed: needById[u.sceneId] || "", canon: canonById[u.sceneId] || "",
       onStep: (a, v, url) => { log(`   ${u.id} still ${a}: pass=${v.pass}`); emit(u.id, { status: v.pass ? "frame" : "drawing", stillUrl: url, attempt: a, pass: v.pass }); },
       onInspect: (kind, a, v, url) => { if (!v.pass && !v._skipped) { const det = (v.issues || v.missing || v.violations || []).slice(0, 2).join(", "); const lbl = kind === "coherence" ? "coherence" : kind === "bible" ? "bible" : "story-need"; log(`   ${u.id} ${lbl} ${a}: FLAG${det ? " \u2014 " + det : ""}`); emit(u.id, { [kind]: "flag" }); } },
@@ -613,6 +636,25 @@ function withPlate(refs, plate) {
   if (!plate) return base.length ? base : null;
   if (base.includes(plate)) return base.slice(0, 3);
   return [...base, plate].slice(0, 3);
+}
+
+// Pick reference image(s) for recurring PROPS that appear in this shot (by name token).
+function pickPropRefs(u, propRefByName) {
+  const names = Object.keys(propRefByName || {});
+  if (!names.length) return [];
+  const hay = `${u.prompts?.image_prompt || ""} ${u.shot?.action || ""} ${u.shot?.subject || ""}`.toLowerCase();
+  return names
+    .filter((n) => n.replace(/[()]/g, " ").split(/\s+/).some((tok) => tok.length >= 3 && !REF_STOP.has(tok) && hay.includes(tok)))
+    .map((n) => propRefByName[n]);
+}
+
+// Compose a shot's reference budget (max 3 for imageEdit): character refs first (face + wardrobe,
+// the proven anchors), then the location plate, then any relevant prop ref in the leftover slot.
+function withRefs(refs, plate, propRefs) {
+  const out = (refs || []).slice(0, 2);
+  if (plate && !out.includes(plate)) out.push(plate);
+  for (const pr of (propRefs || [])) { if (out.length >= 3) break; if (pr && !out.includes(pr)) out.push(pr); }
+  return out.length ? out.slice(0, 3) : null;
 }
 
 function pickVoice(p, shot) {
