@@ -146,8 +146,9 @@ export async function showrun(input, { scenes = 3, source = "logline", maxScenes
     const ch = castToRef[i], pid = `ref_${i}`;
     log(`reference: ${ch.name} ...`);
     emit(pid, { status: "drawing" });
+    const refLook = (storyState?.characters || []).find((c) => c.name === ch.name)?.appearance || ch.description;
     const ref = await approvedStill(
-      `Character model sheet of ${ch.name}: ${ch.description}. ${p.style}. Front view, head and shoulders, on a clean pure white seamless studio background, soft even lighting, subtle contact shadow only, no text.`,
+      `Full-body character model sheet of ${ch.name}, head to toe, showing the COMPLETE outfit and every accessory: ${refLook}. ${p.style}. Standing straight, front view, entire figure visible from head to feet, on a clean pure white seamless studio background, soft even lighting, subtle contact shadow only, no text.`,
       { size: "1328*1328", maxRetries: 1, seed: seedOf("ref" + i),
         onStep: (a, v, url) => { log(`   ref ${ch.name} ${a}: pass=${v.pass}`); emit(pid, { status: v.pass ? "frame" : "drawing", stillUrl: url, attempt: a, pass: v.pass }); },
         onLegal: (a, lv) => log(`   ref ${ch.name} legal ${a}: ${lv.pass ? "clear" : "FLAG " + (lv.ip_issue || lv.text_issue || "issue")}`) });
