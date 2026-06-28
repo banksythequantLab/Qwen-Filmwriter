@@ -111,7 +111,7 @@ export async function showrun(input, { scenes = 3, source = "logline", maxScenes
     const { strategy, shots } = await shotlist(scene, { style: p.style, characters: p.characters, title: p.title });
     const entries = [];
     for (const shot of shots) {
-      const prompts = await promptgen(shot, { style: p.style, characters: p.characters, setting: scene.setting, beat: scene.beat, intent: scene.intent, title: p.title, storySoFar, motif: p.motif, mustShow: mustShowById[scene.id] || [] });
+      const prompts = await promptgen(shot, { style: p.style, characters: p.characters, setting: scene.setting, beat: scene.beat, intent: scene.intent, title: p.title, storySoFar, motif: p.motif, mustShow: mustShowById[scene.id] || [], canon: stateForScene(storyState, scene) });
       entries.push({ shot, prompts });
     }
     const strat = forceStrategy || (entries.length >= 2 ? strategy : "montage");
