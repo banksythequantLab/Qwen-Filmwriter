@@ -302,7 +302,7 @@ export async function showrun(input, { scenes = 3, source = "logline", maxScenes
   // Per-frame inspectors judge a still alone; this walks the film IN ORDER and judges each PAIR of
   // consecutive frames together (wardrobe, location, lighting, props, identity carrying across the cut).
   // A fixed frame becomes the anchor for the next pair, so a correction propagates forward.
-  if (process.env.QWEN_CONTINUITY !== "0") {
+  if (process.env.QWEN_STREAM !== "1" && process.env.QWEN_CONTINUITY !== "0") {
     try {
       const seq = units.filter((u) => u.stillUrl && !u.blocked);   // renderable frames, in film order
       if (seq.length >= 2) {
@@ -341,7 +341,7 @@ export async function showrun(input, { scenes = 3, source = "logline", maxScenes
   // ---- CLOSED-LOOP KPI (Feature 2): PRE-GRADE the storyboard; if a key dimension is weak, re-shoot the
   // single weakest beat and RE-GRADE — the self-evaluation now has teeth instead of just being a report card.
   // Runs on stills (before the expensive animate/assemble) so a correction lifts the final cut's KPI.
-  if (process.env.QWEN_RESHOOT !== "0") {
+  if (process.env.QWEN_STREAM !== "1" && process.env.QWEN_RESHOOT !== "0") {
     try {
       const oneByScene = [...new Map(units.filter((u) => u.stillUrl).map((u) => [u.sceneId, u])).values()];
       const preFrames = oneByScene.map((u) => u.stillUrl).slice(0, 8);
@@ -382,7 +382,7 @@ export async function showrun(input, { scenes = 3, source = "logline", maxScenes
   const beatOf = (sid) => (p.scenes.find((s) => s.id === sid) || {}).beat || "";
   let clipChecked = 0, clipFlagged = 0;
   const CLIP_QA = process.env.QWEN_CLIP_QA !== "0";
-  await mapLimit(units, VIDEO_CC, async (u) => {
+  async function animateUnit(u) {
     if (!u.stillUrl) { emit(u.id, { status: "blocked" }); return; }   // blocked still -> skip, keep the job alive
     emit(u.id, { status: "video_pending" });
     const onTick = (st, s) => { log(`   ${u.id} [${s}s] ${st}`); emit(u.id, { status: st === "SUCCEEDED" ? "clip" : "animating", secs: s }); };
@@ -437,7 +437,89 @@ export async function showrun(input, { scenes = 3, source = "logline", maxScenes
         }
       } catch (e) { log(`   ${u.id} clip-qa error \u2014 ${e.message}`); }
     }
-  });
+  }
+
+  // ---- STREAMING (QWEN_STREAM=1): a shot animates the moment TWO agents OK it — its own quality gate
+  // (the Phase-1 inspectors that already approved the still) and the adjacent-continuity critic vs the
+  // previous FINAL shot. Each shot's (slow) animation then overlaps the continuity work of the shots
+  // after it, instead of the whole storyboard finishing before any video starts.
+  if (process.env.QWEN_STREAM === "1") {
+    const seq = units.filter((u) => u.stillUrl && !u.blocked);   // renderable frames, in film order
+    // Identify the single weakest frame up front (ONE grade, not a per-shot barrier) so it can be
+    // re-rolled when the loop reaches it — "if one of the ones is the weakest frame, re-roll it".
+    let weakId = null;
+    if (process.env.QWEN_RESHOOT !== "0") {
+      try {
+        const oneByScene = [...new Map(seq.map((u) => [u.sceneId, u])).values()];
+        const preFrames = oneByScene.map((u) => u.stillUrl).slice(0, 8);
+        if (preFrames.length >= 2) {
+          const pre = await evaluate({ plan: p, signals, frames: preFrames });
+          const pd = pre.dimensions;
+          log(`pre-grade: KPI ${pre.score}/100 \u2014 continuity ${pd.continuity} \u00b7 identity ${pd.identity} \u00b7 beats ${pd.beats} \u00b7 through-line ${pd.throughline}${pd.craft != null ? ` \u00b7 craft ${pd.craft}` : ""}`);
+          const weakDim = pickWeakDimension(pd);
+          if (pre.score < +(process.env.QWEN_RESHOOT_AT || 85) && weakDim) {
+            const wf = await weakestFrame(preFrames, weakDim);
+            weakId = oneByScene[Math.min(oneByScene.length - 1, (wf.frame || 1) - 1)].id;
+            log(`stream: weakest frame = ${weakId} (${weakDim}) \u2014 re-rolling it before it animates`);
+          } else log(`pre-grade: KPI ${pre.score} \u2265 ${+(process.env.QWEN_RESHOOT_AT || 85)} \u2014 no re-shoot needed`);
+        }
+      } catch (e) { log(`pre-grade: error \u2014 ${e.message}`); }
+    }
+    log(`stream: animating as each shot clears continuity (video x${VIDEO_CC} parallel)`);
+    let breaks = 0, fixed = 0;
+    const pool = [];
+    const dispatch = (u) => {
+      const pr = Promise.resolve().then(() => animateUnit(u)).catch((e) => log(`   ${u.id} animate error \u2014 ${e.message}`)).finally(() => { const k = pool.indexOf(pr); if (k >= 0) pool.splice(k, 1); });
+      pool.push(pr);
+    };
+    for (let i = 0; i < seq.length; i++) {
+      const cur = seq[i], prev = seq[i - 1];
+      // AGENT 2 — adjacent continuity vs the previous FINAL shot; re-roll the later frame on a break.
+      if (i > 0 && process.env.QWEN_CONTINUITY !== "0") {
+        try {
+          const adj = await adjacentContinuityReview(prev.stillUrl, cur.stillUrl);
+          if (!adj._skipped && adj.continuous === false) {
+            breaks++;
+            const det = (adj.breaks || []).slice(0, 3).join(", ");
+            log(`continuity: break ${prev.id} \u2192 ${cur.id}${det ? " \u2014 " + det : ""}`);
+            emit(cur.id, { continuity: "flag" });
+            if (process.env.QWEN_CONTINUITY_FIX !== "0") {
+              const fixPrompt = `MATCH THE PREVIOUS SHOT of this scene for continuity. The FIRST reference image IS that previous shot: keep its EXACT location, time of day, lighting, wardrobe colors, hair, and key props. Fix specifically: ${det || 'wardrobe color, lighting, location, props'}. ${adj.fix_hint || ''} Then render this next moment, changing only the camera framing and the action: ${cur.prompts.image_prompt}. Overall style: ${p.style}.`.trim();
+              const refs = [prev.stillUrl, plateForScene[cur.sceneId], ...(pickRefs(cur, refByName, referenceUrl) || [])].filter(Boolean).slice(0, 3);
+              emit(cur.id, { status: "drawing", continuityfix: true });
+              const re = await approvedStill(fixPrompt, { referenceUrl: refs, size: STILL_SIZE, seed: seedOf(cur.id + "-cont"), storyNeed: needById[cur.sceneId] || "", canon: canonById[cur.sceneId] || "", onStep: (a, v, url) => emit(cur.id, { status: v.pass ? "frame" : "drawing", stillUrl: url, attempt: a, pass: v.pass }), onLegal: (a, lv) => emit(cur.id, { legal: lv.pass ? "clear" : "flag" }) });
+              if (re.url) {
+                const recheck = await adjacentContinuityReview(prev.stillUrl, re.url);
+                cur.stillUrl = re.url;
+                if (recheck._skipped || recheck.continuous !== false) { fixed++; emit(cur.id, { status: "frame", stillUrl: re.url, continuityfixed: true }); log(`continuity: ${cur.id} re-rolled to match`); }
+                else if ((recheck.breaks || []).length < (adj.breaks || []).length) { fixed++; emit(cur.id, { status: "frame", stillUrl: re.url, continuityfixed: true }); log(`continuity: ${cur.id} improved (${(adj.breaks || []).length}->${(recheck.breaks || []).length} issue(s))`); }
+                else { emit(cur.id, { status: "frame", stillUrl: re.url }); log(`continuity: ${cur.id} still imperfect \u2014 kept closest`); }
+              }
+            }
+          }
+        } catch (e) { log(`continuity: error \u2014 ${e.message}`); }
+      }
+      // WEAKEST FRAME — re-roll the single weakest beat before it animates.
+      if (cur.id === weakId) {
+        try {
+          const fixPrompt = `${cur.prompts.image_prompt}. Overall style: ${p.style}. SELF-CRITIQUE FIX \u2014 make this key frame markedly stronger: a clear on-model subject, consistent continuity, and clearly on its story beat.`;
+          const refs = [plateForScene[cur.sceneId], ...(pickRefs(cur, refByName, referenceUrl) || [])].filter(Boolean).slice(0, 3);
+          emit(cur.id, { status: "drawing", reshoot: true });
+          const re = await approvedStill(fixPrompt, { referenceUrl: refs, size: STILL_SIZE, seed: seedOf(cur.id + "-reshoot"), storyNeed: needById[cur.sceneId] || "", canon: canonById[cur.sceneId] || "", onStep: (a, v, url) => emit(cur.id, { status: v.pass ? "frame" : "drawing", stillUrl: url, attempt: a, pass: v.pass }), onLegal: (a, lv) => emit(cur.id, { legal: lv.pass ? "clear" : "flag" }) });
+          if (re.url) { cur.stillUrl = re.url; emit(cur.id, { status: "frame", stillUrl: re.url, reshot: true }); log(`reshoot: ${cur.id} re-rolled (weakest frame)`); }
+          else log(`reshoot: ${cur.id} re-roll blocked \u2014 kept original`);
+        } catch (e) { log(`reshoot: error \u2014 ${e.message}`); }
+      }
+      // BOTH AGENTS OK \u2014 animate now (bounded by VIDEO_CC), overlapping later shots' continuity work.
+      while (pool.length >= VIDEO_CC) await Promise.race(pool);
+      dispatch(cur);
+    }
+    await Promise.all(pool);
+    if (breaks || fixed) { signals.continuity = { ...(signals.continuity || {}), cuts: Math.max(0, seq.length - 1), breaks, fixed }; log(`continuity: ${breaks} break(s) found, ${fixed} fixed across ${Math.max(0, seq.length - 1)} cut(s) (streaming)`); }
+  } else {
+    await mapLimit(units, VIDEO_CC, animateUnit);
+  }
+
   if (CLIP_QA && clipChecked) { log(`clip-qa: ${clipFlagged} of ${clipChecked} take(s) flagged for motion issues`); signals.clips = { checked: clipChecked, flagged: clipFlagged }; }
 
   // ---- PHASE 3: ASSEMBLE — sequential local ffmpeg (EDL + narration + concat) ----
