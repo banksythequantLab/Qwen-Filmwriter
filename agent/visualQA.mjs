@@ -100,13 +100,13 @@ export async function bibleReview(imageUrl, canon, { model = "qwen3-vl-plus" } =
 
 // Generate -> QA -> LEGAL clearance -> regenerate (feeding fix hints + legal negatives back) until pass or maxRetries.
 export async function approvedStill(imagePrompt, { maxRetries = 3, size, onStep, onLegal, onInspect, referenceUrl, seed, promptExtend = false, storyNeed = "", canon = "" } = {}) {
-  const baseNeg = "text, words, letters, captions, subtitles, signage, watermark, logo, garbled text, distorted typography, copyrighted character, trademarked franchise character, superhero costume, masked vigilante in spandex, web-pattern bodysuit, comic-book emblem, cape, branded logo, mascot, celebrity likeness, nsfw, nudity, gore";
+  const baseNeg = "text, words, letters, captions, subtitles, signage, watermark, logo, garbled text, distorted typography, neon signs, billboards, advertisements, shop signs, kanji, glyphs, readable symbols, posters, graffiti, copyrighted character, trademarked franchise character, superhero costume, masked vigilante in spandex, web-pattern bodysuit, comic-book emblem, cape, branded logo, mascot, celebrity likeness, nsfw, nudity, gore";
   const COHERENCE = process.env.QWEN_COHERENCE !== "0";       // physical-sanity inspector (on by default)
   const STORY_NEED = process.env.QWEN_STORY_NEED !== "0";     // per-frame story-need inspector (on by default)
   const BIBLE = process.env.QWEN_BIBLE !== "0";               // continuity-bible (locked-canon) inspector (on by default)
   let history = [], best = null, bestScore = -Infinity, last = null;
   for (let attempt = 1; attempt <= maxRetries + 1; attempt++) {
-    let prompt = imagePrompt, neg = baseNeg;
+    let prompt = imagePrompt + " Keep all walls and surfaces clean and unbranded: no readable text, signs, labels, posters, or graffiti anywhere; render any incidental background signage as blurred abstract glow with no legible letters.", neg = baseNeg;
     if (last && !last.pass) {                                  // progressive, defect-targeted escalation
       const fix = [last.fix_hint, ...(last.issues || [])].filter(Boolean).join("; ") || "improve fidelity";
       const hard = attempt >= 3;
