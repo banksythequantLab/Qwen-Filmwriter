@@ -118,8 +118,8 @@ const server = createServer(async (req, res) => {
     const isChapter = !!(chapter && String(chapter).trim());
     const job = startJob(input, {
       source: isChapter ? "chapter" : "logline",
-      scenes: clamp(scenes, 1, 100),
-      maxScenes: clamp(maxScenes, 1, 100),
+      scenes: clamp(scenes, 1, 25),
+      maxScenes: clamp(maxScenes, 1, 25),
       aspect: ASPECTS.includes(aspect) ? aspect : "16:9",
     });
     return json(res, 202, { jobId: job.id, status: job.status, poll: `/jobs/${job.id}` });
