@@ -35,11 +35,11 @@ function streamMp4(req, res, file) {
 function startJob(input, { source = "logline", scenes = 3, maxScenes = 24, aspect = "16:9" } = {}) {
   const id = randomUUID().slice(0, 8);
   const preview = source === "chapter" ? input.replace(/\s+/g, " ").slice(0, 140) + "…" : input;
-  const job = { id, status: "running", log: [], input: preview, source, scenes, aspect, title: null, finalPath: null, error: null, panels: {}, created: Date.now() };
+  const job = { id, status: "running", log: [], input: preview, source, scenes, aspect, title: null, finalPath: null, error: null, kpi: null, dimensions: null, panels: {}, created: Date.now() };
   jobs.set(id, job);
   const onEvent = (e) => { if (e && e.id) job.panels[e.id] = { ...(job.panels[e.id] || {}), ...e }; };
   showrun(input, { source, scenes, maxScenes, aspect, outDir: path.join("output/jobs", id), log: (m) => job.log.push(String(m)), onEvent })
-    .then((r) => { job.status = "done"; job.finalPath = r.finalPath; job.title = r.title; })
+    .then((r) => { job.status = "done"; job.finalPath = r.finalPath; job.title = r.title; job.kpi = r.kpi ?? null; job.dimensions = (r.evaluation && r.evaluation.dimensions) || null; })
     .catch((e) => { job.status = "error"; job.error = e.message; });
   return job;
 }
@@ -71,7 +71,7 @@ const server = createServer(async (req, res) => {
         .map(x => {
           let title = "Generated film";
           try { title = JSON.parse(readFileSync(path.join(base, x.id, "storyboard.json"), "utf8")).plan?.title || title; } catch {}
-          return { id: x.id, title, tag: "Just generated", film: `/made/${x.id}/film`, mtime: statSync(x.mp4).mtimeMs };
+          return { id: x.id, title, tag: "Just generated", film: `/made/${x.id}/film`, mtime: statSync(x.mp4).mtimeMs, ...(() => { try { const e = JSON.parse(readFileSync(path.join(base, x.id, "evaluation.json"), "utf8")); return { kpi: e.score ?? null, dimensions: e.dimensions || null }; } catch { return { kpi: null, dimensions: null }; } })() };
         })
         .sort((a, b) => b.mtime - a.mtime)
         .map(({ mtime, ...rest }) => rest);
@@ -131,7 +131,7 @@ const server = createServer(async (req, res) => {
       if (job.status !== "done" || !job.finalPath || !existsSync(job.finalPath)) return json(res, 409, { status: job.status });
       return streamMp4(req, res, job.finalPath);
     }
-    return json(res, 200, { id: job.id, status: job.status, title: job.title, input: job.input, source: job.source, scenes: job.scenes, error: job.error, log: job.log.slice(-300), panels: Object.values(job.panels), film: job.status === "done" ? `/jobs/${job.id}/film` : null });
+    return json(res, 200, { id: job.id, status: job.status, title: job.title, input: job.input, source: job.source, scenes: job.scenes, kpi: job.kpi, dimensions: job.dimensions, error: job.error, log: job.log.slice(-300), panels: Object.values(job.panels), film: job.status === "done" ? `/jobs/${job.id}/film` : null });
   }
   json(res, 404, { error: "not found" });
 });
