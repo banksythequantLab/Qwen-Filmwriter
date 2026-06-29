@@ -643,9 +643,13 @@ function pickPropRefs(u, propRefByName) {
   const names = Object.keys(propRefByName || {});
   if (!names.length) return [];
   const hay = `${u.prompts?.image_prompt || ""} ${u.shot?.action || ""} ${u.shot?.subject || ""}`.toLowerCase();
-  return names
+  const matched = names
     .filter((n) => n.replace(/[()]/g, " ").split(/\s+/).some((tok) => tok.length >= 3 && !REF_STOP.has(tok) && hay.includes(tok)))
     .map((n) => propRefByName[n]);
+  if (matched.length) return matched;
+  // Synonym-proof fallback: shot prompts call the central prop "the device"/"the box", so token-match
+  // misses it. With only 1-2 tracked props, anchor them on every shot so the object stops drifting.
+  return names.length <= 2 ? names.map((n) => propRefByName[n]) : [];
 }
 
 // Compose a shot's reference budget (max 3 for imageEdit): character refs first (face + wardrobe,
