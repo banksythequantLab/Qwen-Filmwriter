@@ -649,7 +649,7 @@ function pickPropRefs(u, propRefByName) {
   if (matched.length) return matched;
   // Synonym-proof fallback: shot prompts call the central prop "the device"/"the box", so token-match
   // misses it. With only 1-2 tracked props, anchor them on every shot so the object stops drifting.
-  return names.length <= 2 ? names.map((n) => propRefByName[n]) : [];
+  return names.length ? [propRefByName[names[0]]] : [];
 }
 
 // Compose a shot's reference budget (max 3 for imageEdit): character refs first (face + wardrobe,
