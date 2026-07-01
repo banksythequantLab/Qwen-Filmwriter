@@ -1,6 +1,6 @@
 // agent/showrun.mjs — the conductor. logline -> finished short, fully autonomous.
 // plan -> per scene: shotlist (picks strategy) -> promptgen -> render (montage | longtake) -> stitch
-import { mkdirSync, writeFileSync } from "node:fs";
+import { mkdirSync, writeFileSync, copyFileSync, rmSync } from "node:fs";
 import path from "node:path";
 import { plan } from "./planner.mjs";
 import { adapt } from "./planner.mjs";
@@ -146,10 +146,18 @@ export async function showrun(input, { scenes = 3, source = "logline", maxScenes
     const ch = castToRef[i], pid = `ref_${i}`;
     log(`reference: ${ch.name} ...`);
     emit(pid, { status: "drawing" });
-    const refLook = (storyState?.characters || []).find((c) => c.name === ch.name)?.appearance || ch.description;
+    const chState = (storyState?.characters || []).find((c) => c.name === ch.name);
+    const refLook = chState?.appearance || ch.description;
+    // ANCHOR HARDENING: the reference portrait is the identity anchor for the WHOLE film — gate it
+    // against the character's own locked canon (bible inspector) and give it real retries, so a
+    // canon-violating anchor can't silently poison every downstream identity check.
+    const refCanon = [
+      refLook ? `${ch.name} — WARDROBE LOCK (head-to-toe, identical every shot incl. footwear & hair): ${refLook}` : "",
+      ...((chState?.locked || []).slice(0, 5).map((l) => `${ch.name}: ${l}`)),
+    ].filter(Boolean).join("\n");
     const ref = await approvedStill(
       `Full-body character model sheet of ${ch.name}, head to toe, showing the COMPLETE outfit and every accessory: ${refLook}. ${p.style}. Standing straight, front view, entire figure visible from head to feet, on a clean pure white seamless studio background, soft even lighting, subtle contact shadow only, no text.`,
-      { size: "1328*1328", maxRetries: 1, seed: seedOf("ref" + i),
+      { size: "1328*1328", maxRetries: +(process.env.QWEN_REF_RETRIES ?? 2), seed: seedOf("ref" + i), canon: refCanon,
         onStep: (a, v, url) => { log(`   ref ${ch.name} ${a}: pass=${v.pass}`); emit(pid, { status: v.pass ? "frame" : "drawing", stillUrl: url, attempt: a, pass: v.pass }); },
         onLegal: (a, lv) => log(`   ref ${ch.name} legal ${a}: ${lv.pass ? "clear" : "FLAG " + (lv.ip_issue || lv.text_issue || "issue")}`) });
     if (ref.url) { refByName[ch.name] = ref.url; emit(pid, { status: "frame", stillUrl: ref.url }); await download(ref.url, path.join(dir, `character_ref_${i}.png`)); }
@@ -316,6 +324,16 @@ export async function showrun(input, { scenes = 3, source = "logline", maxScenes
             if (!rc.ok) log(`story-fix: re-check skipped — assuming fixes hold`);
             else if (stillWeak.length) log(`story-fix: unresolved (${stillWeak.length}) — S${stillWeak.join(", S")} still weak after re-roll`);
             else log(`story-fix: resolved — all re-rolled frames now read`);
+            // ---- IDENTITY RE-CHECK: the re-rolls updated u.stillUrl in place, but the drift count
+            // feeding the KPI was frozen pre-fix — re-grade so identity scores the FIXED frames.
+            if (signals.identity && process.env.QWEN_IDENTITY_RECHECK !== "0") {
+              const idr2 = await identityReview(refByName, toFrames(sampled));
+              if (idr2.ok) {
+                const stillDrift = (idr2.review.drift || []).filter((d) => sampleByScene.has(+d.id));
+                log(`identity: re-check after fixes — drift ${signals.identity.drift} -> ${stillDrift.length}`);
+                signals.identity.drift = stillDrift.length;
+              } else log(`identity: re-check skipped — keeping pre-fix drift count`);
+            }
           }
         }
       } else { log(`story-review: skipped`); }
@@ -448,13 +466,25 @@ export async function showrun(input, { scenes = 3, source = "logline", maxScenes
             const det = (cr.issues || []).slice(0, 2).join(", ");
             log(`   ${u.id} clip-qa: FLAG${det ? " \u2014 " + det : ""}`);
             emit(u.id, { clip: "flag" });
-            if (process.env.QWEN_CLIP_FIX === "1") {   // opt-in: one steadier re-animation from the same still
+            if (process.env.QWEN_CLIP_FIX !== "0") {   // ON by default: one steadier re-animation from the same still
               try {
                 const steadier = `${u.prompts.motion_prompt || "subtle natural motion"}. Keep the subject stable and on-model; ${cr.fix_hint || "no morphing, gentle camera move only"}.`;
                 const re = await video(steadier, { imageUrl: u.stillUrl, resolution: "720P", duration: u.shot.duration || u.takeDur, onTick });
-                await download(re.url, u.clipPath);
-                log(`   ${u.id} clip-qa: re-animated steadier`);
-                emit(u.id, { clip: "refixed" });
+                const rePath = u.clipPath.replace(/\.mp4$/i, "_fix.mp4");
+                await download(re.url, rePath);
+                // VERIFY the re-take before adopting it: only a take that now passes motion QA replaces
+                // the original (and clears its flag); a re-take that is also bad keeps the original.
+                const reUri = await lastFrameDataUri(rePath);
+                const rr = await clipReview(u.stillUrl, reUri, beatOf(u.sceneId));
+                if (rr.pass && !rr._skipped) {
+                  copyFileSync(rePath, u.clipPath);
+                  clipFlagged--;
+                  log(`   ${u.id} clip-qa: re-animated steadier, verified, flag cleared`);
+                  emit(u.id, { clip: "refixed" });
+                } else {
+                  log(`   ${u.id} clip-qa: re-take ${rr._skipped ? "unverifiable" : "still flagged"}, kept original`);
+                }
+                try { rmSync(rePath); } catch {}
               } catch (e) { log(`   ${u.id} clip-qa re-animate failed \u2014 kept original`); }
             }
           } else { emit(u.id, { clip: "ok" }); }
