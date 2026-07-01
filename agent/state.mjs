@@ -14,9 +14,9 @@ Return STRICT JSON ONLY (no markdown):
   "timeline": [string],
   "openThreads": [string]
 }
-- "appearance": ONE committed, SPECIFIC visual lock for this character that EVERY shot must match — exact wardrobe (each garment + its EXACT colors), hair (cut + color), build, and any distinguishing feature. Where the plan is vague (e.g. "neon accents", "dark outfit"), COMMIT to one concrete choice (e.g. "electric-blue neon piping on a matte-black tactical jacket") and keep it fixed for the entire film. Be decisive and specific — this is the single source of truth for how the character looks.
+- "appearance": ONE committed, SPECIFIC, HEAD-TO-TOE visual lock this character must match in EVERY shot. Enumerate, in order, a concrete committed choice for EACH slot — never omit one: (1) hair — cut, length, EXACT color; (2) face/skin — tone plus any distinguishing mark (facial hair, scar, glasses); (3) upper body — each garment, its type, EXACT color, material; (4) lower body — garment type and EXACT color; (5) FOOTWEAR — type and EXACT color (commit shoes/boots/heels/sandals, or "barefoot" — NEVER leave feet unspecified); (6) accessories present in every shot — each item + color (hat, jewelry, belt, gloves, bag). Where the plan is vague (e.g. "neon accents", "dark outfit", a dancer's "flowing dress"), you MUST COMMIT to one concrete choice (e.g. "electric-blue neon piping on a matte-black tactical jacket"; "ankle-strap black leather heels") and keep it fixed for the entire film. FORBID vague words (nice, stylish, some, various, appropriate) — every slot gets a decisive specific. This is the single source of truth for how the character looks.
 - "props": recurring physical objects that appear across scenes (a package, a weapon, a device, a vehicle). Give each a FIXED, specific look — shape, material, EXACT colors, any markings or lights — so it can never drift between shots. Commit specifics even when the plan is vague. Omit one-off background items.
-- "locked": invariants that MUST hold for the whole film unless the story EXPLICITLY changes them — a fixed trait, a death, an injury, a possession, a relationship, a rule of the world. Be conservative: list only things that would be a continuity ERROR if violated.
+- "locked": invariants that MUST hold for the whole film unless the story EXPLICITLY changes them — a fixed trait, a death, an injury, a possession, a relationship, a rule of the world. Be conservative: list only things that would be a continuity ERROR if violated. ALSO list the character's most drift-prone visual specifics as invariants — FOOTWEAR (type + color), the main garment's color, and hair (cut + color) — so a later shot that changes them registers as a continuity error.
 - "facts": other stable but non-locked details (role, want, age).
 - "worldRules": setting/world constraints (era, technology, physics, tone) every scene must respect.
 - "timeline": the ordered key events implied by the beats, so chronology can be checked.
@@ -63,8 +63,8 @@ export function stateForScene(state, scene) {
   const chars = (named.length ? named : (state.characters || [])).slice(0, 4);
   const lines = [];
   for (const c of chars) {
-    if (c.appearance) lines.push(`${c.name} — APPEARANCE (identical in every shot): ${c.appearance}`);
-    const locked = (c.locked || []).slice(0, 3);
+    if (c.appearance) lines.push(`${c.name} — WARDROBE LOCK (head-to-toe, identical every shot incl. footwear & hair): ${c.appearance}`);
+    const locked = (c.locked || []).slice(0, 5);
     if (locked.length) lines.push(`${c.name} — MUST hold: ${locked.join("; ")}`);
   }
   const props = state.props || [];
