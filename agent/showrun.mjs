@@ -299,7 +299,7 @@ export async function showrun(input, { scenes = 3, source = "logline", maxScenes
             const u = sampleByScene.get(sid); if (!u) return;
             const issue = issueById.get(sid) || "the frame does not clearly convey its story beat";
             const beat = beatById.get(sid) || "";
-            const fixPrompt = `${u.prompts.image_prompt}. Overall style: ${p.style}. STORY FIX — the previous version failed because: ${issue}. This frame MUST clearly read as this story beat: ${beat}.`;
+            const fixPrompt = `${u.prompts.image_prompt}. Overall style: ${p.style}.${canonById[sid] ? ` LOCKED CANON — keep these EXACT, identical every shot: ${String(canonById[sid]).replace(/\n/g, " | ")}.` : ""} STORY FIX — the previous version failed because: ${issue}. This frame MUST clearly read as this story beat: ${beat}.`;
             emit(u.id, { status: "drawing", storyfix: true });
             const re = await approvedStill(fixPrompt, { referenceUrl: pickRefs(u, refByName, referenceUrl), size: STILL_SIZE, seed: seedOf(u.id + "-fix"),
               storyNeed: needById[sid] || "", canon: canonById[sid] || "",
@@ -379,7 +379,7 @@ export async function showrun(input, { scenes = 3, source = "logline", maxScenes
           const wf = await weakestFrame(preFrames, weakDim);
           const u = oneByScene[Math.min(oneByScene.length - 1, (wf.frame || 1) - 1)];
           log(`reshoot: KPI ${pre.score} < ${RESHOOT_AT}; weakest dimension = ${weakDim} \u2192 re-shooting S${u.sceneId}${wf.why ? ` (${wf.why})` : ""}`);
-          const fixPrompt = `${u.prompts.image_prompt}. Overall style: ${p.style}. SELF-CRITIQUE FIX \u2014 the film graded weakest on ${weakDim}. ${wf.why || ""}. Make this key frame markedly stronger on ${weakDim}: a clear on-model subject, consistent continuity, and clearly on its story beat.`;
+          const fixPrompt = `${u.prompts.image_prompt}. Overall style: ${p.style}.${canonById[u.sceneId] ? ` LOCKED CANON \u2014 keep these EXACT, identical every shot: ${String(canonById[u.sceneId]).replace(/\n/g, " | ")}.` : ""} SELF-CRITIQUE FIX \u2014 the film graded weakest on ${weakDim}. ${wf.why || ""}. Make this key frame markedly stronger on ${weakDim}: a clear on-model subject, consistent continuity, and clearly on its story beat.`;
           emit(u.id, { status: "drawing", reshoot: true });
           const re = await approvedStill(fixPrompt, { referenceUrl: pickRefs(u, refByName, referenceUrl), size: STILL_SIZE, seed: seedOf(u.id + "-reshoot"),
             storyNeed: needById[u.sceneId] || "", canon: canonById[u.sceneId] || "",
@@ -526,7 +526,7 @@ export async function showrun(input, { scenes = 3, source = "logline", maxScenes
       // WEAKEST FRAME — re-roll the single weakest beat before it animates.
       if (cur.id === weakId) {
         try {
-          const fixPrompt = `${cur.prompts.image_prompt}. Overall style: ${p.style}. SELF-CRITIQUE FIX \u2014 make this key frame markedly stronger: a clear on-model subject, consistent continuity, and clearly on its story beat.`;
+          const fixPrompt = `${cur.prompts.image_prompt}. Overall style: ${p.style}.${canonById[cur.sceneId] ? ` LOCKED CANON \u2014 keep these EXACT, identical every shot: ${String(canonById[cur.sceneId]).replace(/\n/g, " | ")}.` : ""} SELF-CRITIQUE FIX \u2014 make this key frame markedly stronger: a clear on-model subject, consistent continuity, and clearly on its story beat.`;
           const refs = [plateForScene[cur.sceneId], ...(pickRefs(cur, refByName, referenceUrl) || [])].filter(Boolean).slice(0, 3);
           emit(cur.id, { status: "drawing", reshoot: true });
           const re = await approvedStill(fixPrompt, { referenceUrl: refs, size: STILL_SIZE, seed: seedOf(cur.id + "-reshoot"), storyNeed: needById[cur.sceneId] || "", canon: canonById[cur.sceneId] || "", onStep: (a, v, url) => emit(cur.id, { status: v.pass ? "frame" : "drawing", stillUrl: url, attempt: a, pass: v.pass }), onLegal: (a, lv) => emit(cur.id, { legal: lv.pass ? "clear" : "flag" }) });
