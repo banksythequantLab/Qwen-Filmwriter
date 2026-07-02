@@ -19,6 +19,7 @@ import { throughline } from "./throughline.mjs";
 import { composeStorySoFar, rollingSummarize } from "./memory.mjs";
 import { evaluate, weakestFrame } from "./evaluate.mjs";
 import { saveCast, loadCast } from "./season.mjs";
+import { narrationReview } from "./sound.mjs";
 
 export async function showrun(input, { scenes = 3, source = "logline", maxScenes = 24, aspect = "16:9", outDir = "output/film", render = true, forceStrategy, voiceover = false, season = "", log = console.log, onEvent = () => {} } = {}) {
   const dir = path.resolve(outDir);
@@ -113,6 +114,24 @@ export async function showrun(input, { scenes = 3, source = "logline", maxScenes
   else if (voiceover) log(`narration: voiceover (requested)`);
   else log(`narration: none — letting the pictures and native audio carry it`);
   if (p.motif) log(`motif: ${p.motif}`);
+
+  // ---- SOUND DEPARTMENT: table-read the narration script BEFORE any recording — one narrator's
+  // voice, no repeats, each line advances the story, and short enough to fit its scene (overruns
+  // get hard-cut mid-sentence at stitch). Flagged lines are rewritten in place.
+  if (useVO && process.env.QWEN_SOUND !== "0") {
+    try {
+      const nr = await narrationReview(p);
+      if (!nr.skipped) {
+        for (const iss of nr.issues.slice(0, 4)) log(`sound: script note — ${iss}`);
+        let rewrote = 0;
+        for (const rw of nr.rewrites) {
+          const s = (p.scenes || []).find((x) => x.id === +rw.id);
+          if (s && rw.line) { s.narration = String(rw.line).trim(); rewrote++; log(`sound: S${rw.id} narration rewritten — "${String(rw.line).slice(0, 70)}"`); }
+        }
+        log(rewrote ? `sound: table read — ${rewrote} line(s) rewritten` : `sound: table read — narration script reads clean`);
+      }
+    } catch (e) { log(`sound: review error — ${e.message}`); }
+  }
 
   // Expand: scene -> { strategy, shots(+prompts) }. Carry a lean, retrieval-based "story so far"
   // into every shot, with a rolling summary folding older beats in on long films (memory at scale).
@@ -693,7 +712,7 @@ export async function showrun(input, { scenes = 3, source = "logline", maxScenes
         await assembleEdit(spineU.clipPath, Object.fromEntries(cuts.map((u) => [u.id, u.clipPath])), edl, sceneClip, dir);
       }
       const leadVO = { narration: sp.scene.narration || "", dialogue: spineU.shot.dialogue || [] };
-      const voPath = useVO ? await voiceForScene(leadVO, path.join(dir, `vo_s${sp.scene.id}.wav`), { voice: narVoice || pickVoice(p, spineU.shot) }) : null;
+      const voPath = useVO ? await voiceForScene(leadVO, path.join(dir, `vo_s${sp.scene.id}.wav`), { voice: narVoice || pickVoice(p, spineU.shot), maxDur: spineU.takeDur || 0, log }) : null;
       sceneFinal = path.join(dir, `scene_${sp.scene.id}.mp4`);
       await buildSegment(sceneClip, voPath, sceneFinal);
     } else {
@@ -701,7 +720,7 @@ export async function showrun(input, { scenes = 3, source = "logline", maxScenes
       let i = 0, lead = true;
       for (const u of us) {
         const voObj = lead ? { narration: sp.scene.narration || "", dialogue: u.shot.dialogue || [] } : u.shot;
-        const voPath = useVO ? await voiceForScene(voObj, path.join(dir, `vo_${u.id}.wav`), { voice: narVoice || pickVoice(p, u.shot) }) : null;
+        const voPath = useVO ? await voiceForScene(voObj, path.join(dir, `vo_${u.id}.wav`), { voice: narVoice || pickVoice(p, u.shot), maxDur: u.shot.duration || 0, log }) : null;
         lead = false;
         const seg = path.join(dir, `seg_${u.id}_${String(++i).padStart(2, "0")}.mp4`);
         await buildSegment(u.clipPath, voPath, seg);
