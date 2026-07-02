@@ -280,7 +280,7 @@ a{color:var(--fg);text-decoration:none}
     <p class="eyebrow">In motion</p>
     <h2>Whole films, start to finish.</h2>
     <p class="lead">Each one generated end-to-end from a single logline — directed, shot, scored, and cut with no human in the loop. The badge is the film's own KPI: it grades itself on continuity, identity, beats, through-line, and craft. These play live, straight from the app.</p>
-    <div class="reel">
+    <div class="reel" id="reel">
       <div class="clip"><span class="lbl">Car chase · KPI 92</span><video src="https://filmwriter.tlz.us/made/c4eacbdf/film" autoplay muted loop playsinline preload="metadata"></video></div>
       <div class="clip"><span class="lbl">Station escape · KPI 96</span><video src="https://filmwriter.tlz.us/made/00c15d08/film" autoplay muted loop playsinline preload="metadata"></video></div>
       <div class="clip"><span class="lbl">Noir · KPI 87</span><video src="https://filmwriter.tlz.us/made/9bdf74c0/film" autoplay muted loop playsinline preload="metadata"></video></div>
@@ -292,10 +292,30 @@ a{color:var(--fg);text-decoration:none}
     <div class="band">
       <div class="s"><b>1</b><span>logline in</span></div>
       <div class="s"><b>8</b><span>agents</span></div>
-      <div class="s"><b>87</b><span>avg self-scored KPI</span></div>
+      <div class="s"><b id="avgkpi">87</b><span>avg self-scored KPI</span></div>
       <div class="s"><b>0</b><span>humans in the loop</span></div>
     </div>
   </div>
+
+  <script>
+  // LIVE numbers: the reel and the avg-KPI band come from the app's own /gallery (its self-scores),
+  // not hand-typed values. Falls back silently to the static markup if the app is unreachable.
+  (async () => {
+    const API = 'https://filmwriter.tlz.us';
+    let films = [];
+    try { films = (await (await fetch(API + '/gallery')).json()).films || []; } catch { return; }
+    const scored = films.filter(f => f.kpi != null);
+    if (!scored.length) return;
+    const avg = Math.round(scored.reduce((s, f) => s + f.kpi, 0) / scored.length);
+    const b = document.getElementById('avgkpi'); if (b) b.textContent = avg;
+    const esc = (s) => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+    const top = scored.sort((a, b2) => b2.kpi - a.kpi).slice(0, 4);
+    const reel = document.getElementById('reel');
+    if (reel && top.length >= 3) reel.innerHTML = top.map(f =>
+      '<div class="clip"><span class="lbl">' + esc(f.title) + ' · KPI ' + f.kpi + '</span>' +
+      '<video src="' + API + esc(f.film) + '" autoplay muted loop playsinline preload="metadata"></video></div>').join('');
+  })();
+  </script>
 
   <div class="close">
     <h2>Give it a sentence.</h2>
