@@ -32,13 +32,13 @@ function streamMp4(req, res, file) {
   if (req.method === "HEAD") return res.end();
   createReadStream(file).pipe(res);
 }
-function startJob(input, { source = "logline", scenes = 3, maxScenes = 24, aspect = "16:9" } = {}) {
+function startJob(input, { source = "logline", scenes = 3, maxScenes = 24, aspect = "16:9", season = "" } = {}) {
   const id = randomUUID().slice(0, 8);
   const preview = source === "chapter" ? input.replace(/\s+/g, " ").slice(0, 140) + "…" : input;
-  const job = { id, status: "running", log: [], input: preview, source, scenes, aspect, title: null, finalPath: null, error: null, kpi: null, dimensions: null, panels: {}, created: Date.now() };
+  const job = { id, status: "running", log: [], input: preview, source, scenes, aspect, season: season || null, title: null, finalPath: null, error: null, kpi: null, dimensions: null, panels: {}, created: Date.now() };
   jobs.set(id, job);
   const onEvent = (e) => { if (e && e.id) job.panels[e.id] = { ...(job.panels[e.id] || {}), ...e }; };
-  showrun(input, { source, scenes, maxScenes, aspect, outDir: path.join("output/jobs", id), log: (m) => job.log.push(String(m)), onEvent })
+  showrun(input, { source, scenes, maxScenes, aspect, season, outDir: path.join("output/jobs", id), log: (m) => job.log.push(String(m)), onEvent })
     .then((r) => { job.status = "done"; job.finalPath = r.finalPath; job.title = r.title; job.kpi = r.kpi ?? null; job.dimensions = (r.evaluation && r.evaluation.dimensions) || null; job.identity_split = (r.evaluation && r.evaluation.identity_split) || null; })
     .catch((e) => { job.status = "error"; job.error = e.message; });
   return job;
@@ -110,7 +110,7 @@ const server = createServer(async (req, res) => {
   }
 
   if (req.method === "POST" && p[0] === "showrun") {
-    const { logline, chapter, scenes = 3, maxScenes = 24, aspect = "16:9" } = await body(req);
+    const { logline, chapter, scenes = 3, maxScenes = 24, aspect = "16:9", season = "" } = await body(req);
     const input = (chapter && String(chapter).trim()) || logline;
     if (!input) return json(res, 400, { error: "logline or chapter required" });
     const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, Number(v) || lo));
@@ -121,6 +121,7 @@ const server = createServer(async (req, res) => {
       scenes: clamp(scenes, 1, 25),
       maxScenes: clamp(maxScenes, 1, 25),
       aspect: ASPECTS.includes(aspect) ? aspect : "16:9",
+      season: String(season || "").slice(0, 40),
     });
     return json(res, 202, { jobId: job.id, status: job.status, poll: `/jobs/${job.id}` });
   }

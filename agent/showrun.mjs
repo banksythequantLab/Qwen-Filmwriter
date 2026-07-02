@@ -18,8 +18,9 @@ import { buildState, stateForScene, lockedFacts } from "./state.mjs";
 import { throughline } from "./throughline.mjs";
 import { composeStorySoFar, rollingSummarize } from "./memory.mjs";
 import { evaluate, weakestFrame } from "./evaluate.mjs";
+import { saveCast, loadCast } from "./season.mjs";
 
-export async function showrun(input, { scenes = 3, source = "logline", maxScenes = 24, aspect = "16:9", outDir = "output/film", render = true, forceStrategy, voiceover = false, log = console.log, onEvent = () => {} } = {}) {
+export async function showrun(input, { scenes = 3, source = "logline", maxScenes = 24, aspect = "16:9", outDir = "output/film", render = true, forceStrategy, voiceover = false, season = "", log = console.log, onEvent = () => {} } = {}) {
   const dir = path.resolve(outDir);
   mkdirSync(dir, { recursive: true });
   const emit = (id, patch) => { try { onEvent({ id, ...patch }); } catch {} };
@@ -67,6 +68,24 @@ export async function showrun(input, { scenes = 3, source = "logline", maxScenes
         signals.continuity = { conflicts: cc.conflicts.length, resolved: !!rp.ok };
       } else { log(`continuity: no contradictions found`); signals.continuity = { conflicts: 0, resolved: true }; }
     } catch (e) { log(`state: error — ${e.message}`); }
+  }
+
+  // ---- SEASON (studio vault): a returning cast keeps its FACE and WARDROBE LOCK across episodes.
+  // The new story may rename the roles — vault stars map onto this episode's characters IN ORDER,
+  // overriding appearance + locked invariants so canon and anchors carry over film to film.
+  const seasonName = String(season || process.env.QWEN_SEASON || "").trim();
+  let seasonVault = null;
+  if (seasonName) {
+    seasonVault = loadCast(seasonName);
+    if (seasonVault?.cast?.length && storyState?.characters?.length) {
+      const n = Math.min(seasonVault.cast.length, storyState.characters.length);
+      for (let i = 0; i < n; i++) {
+        const star = seasonVault.cast[i], role = storyState.characters[i];
+        log(`season: casting ${role.name} as returning star ${star.name}`);
+        if (star.appearance) role.appearance = star.appearance;
+        if (star.locked?.length) role.locked = star.locked;
+      }
+    } else log(`season: "${seasonName}" ${seasonVault ? "has no cast yet" : "is new"} — this film will found it`);
   }
 
   // ---- THROUGH-LINE critic: central dramatic question + per-scene MUST-SHOW visual requirements ----
@@ -141,9 +160,20 @@ export async function showrun(input, { scenes = 3, source = "logline", maxScenes
 
   // Character references (subject consistency): one approved portrait PER named character, reused across shots.
   const refByName = {};
+  const localRefByName = {};   // character name -> LOCAL png path of this run's anchor (for the vault)
   let referenceUrl = null;   // lead ref — fallback anchor for establishing/character-less shots
   for (let i = 0; i < castToRef.length; i++) {
     const ch = castToRef[i], pid = `ref_${i}`;
+    // SEASON: a returning star's canon-audited anchor is reused as-is — no re-cast, no anchor spend.
+    const star = seasonVault?.cast?.[i];
+    if (star?.dataUri) {
+      refByName[ch.name] = star.dataUri;
+      localRefByName[ch.name] = star.file;
+      if (!referenceUrl) referenceUrl = star.dataUri;
+      emit(pid, { status: "frame", stillUrl: star.dataUri });
+      log(`reference: ${ch.name} — returning star ${star.name}, anchor reused from vault`);
+      continue;
+    }
     log(`reference: ${ch.name} ...`);
     emit(pid, { status: "drawing" });
     const chState = (storyState?.characters || []).find((c) => c.name === ch.name);
@@ -168,7 +198,7 @@ export async function showrun(input, { scenes = 3, source = "logline", maxScenes
         onRound: (r, v) => log(`   ref ${ch.name} refine ${r}: ${v.error ? "error — " + String(v.error).slice(0, 60) : v.pass ? "canon PASS" : "still off — " + ((v.violations || []).slice(0, 2).join("; ") || "unverified")}`) });
       if (rr.url) { ref.url = rr.url; ref.approved = rr.approved || ref.approved; }
     }
-    if (ref.url) { refByName[ch.name] = ref.url; emit(pid, { status: "frame", stillUrl: ref.url }); await download(ref.url, path.join(dir, `character_ref_${i}.png`)); }
+    if (ref.url) { refByName[ch.name] = ref.url; emit(pid, { status: "frame", stillUrl: ref.url }); const lp = path.join(dir, `character_ref_${i}.png`); await download(ref.url, lp); localRefByName[ch.name] = lp; }
     if (!referenceUrl) referenceUrl = ref.url;
   }
   log(`references: ${Object.keys(refByName).length} of ${castToRef.length} character(s) anchored`);
@@ -470,7 +500,7 @@ export async function showrun(input, { scenes = 3, source = "logline", maxScenes
       // DURING video generation — attacking the drift i2v can't (it only sees the first frame). Trades
       // away the approved-still anchor for identity hold; falls back to i2v on any failure.
       const R2V = process.env.QWEN_R2V === "1";
-      const r2vRefs = R2V ? [...Object.values(refByName).slice(0, 2), plateForScene[u.sceneId]].filter(Boolean) : [];
+      const r2vRefs = R2V ? [...Object.values(refByName).slice(0, 2), plateForScene[u.sceneId]].filter((u2) => u2 && /^https?:/i.test(u2)) : [];   // r2v API takes PUBLIC URLs only — vault data-URI anchors can't ride
       if (R2V && r2vRefs.length) {
         try {
           const legend = Object.keys(refByName).slice(0, 2).map((n, i) => `character${i + 1} is ${n}`).join("; ");
@@ -482,6 +512,35 @@ export async function showrun(input, { scenes = 3, source = "logline", maxScenes
           clip = null;
         }
       }
+      // COVERAGE (QWEN_TAKES>=2, default off): a director shoots coverage — N seed-varied takes in
+      // parallel; motion-QA picks the best, the rest are struck. Bounded at 3 takes.
+      const TAKES = Math.min(3, Math.max(1, +(process.env.QWEN_TAKES || 1)));
+      if (!clip && TAKES >= 2) {
+        try {
+          const takes = await Promise.all(Array.from({ length: TAKES }, (_, k) =>
+            video((u.prompts.motion_prompt || "subtle natural motion, slow cinematic camera move") + HOLD_CAST,
+              { imageUrl: u.stillUrl, resolution: "720P", duration: u.shot.duration, seed: seedOf(u.id + "-take" + k), onTick })
+              .catch(() => null)));
+          const scored = [];
+          for (let k = 0; k < takes.length; k++) {
+            if (!takes[k]?.url) continue;
+            const tPath = path.join(dir, `take_${u.id}_${k}.mp4`);
+            await download(takes[k].url, tPath);
+            let verdict = { pass: false, issues: [], _skipped: true };
+            try { verdict = await clipReview(u.stillUrl, await lastFrameDataUri(tPath), beatOf(u.sceneId)); } catch {}
+            scored.push({ path: tPath, verdict });
+          }
+          const best = scored.sort((a, b) => ((b.verdict.pass === true) - (a.verdict.pass === true)) || ((a.verdict.issues?.length || 9) - (b.verdict.issues?.length || 9)))[0];
+          if (best) {
+            u.clipPath = path.join(dir, `clip_${u.id}.mp4`);
+            copyFileSync(best.path, u.clipPath);
+            for (const s of scored) { try { rmSync(s.path); } catch {} }
+            log(`   ${u.id} coverage: ${scored.length} take(s) reviewed — best ${best.verdict.pass ? "PASSES" : "kept-closest"}`);
+            u._coverageDone = true;
+            clip = { url: null };
+          }
+        } catch (e) { log(`   ${u.id} coverage failed (${String(e.message).slice(0, 40)}) — single take`); }
+      }
       if (!clip) clip = await video((u.prompts.motion_prompt || "subtle natural motion, slow cinematic camera move") + HOLD_CAST,
         { imageUrl: u.stillUrl, resolution: "720P", duration: u.shot.duration, onTick });
     } else {
@@ -489,8 +548,10 @@ export async function showrun(input, { scenes = 3, source = "logline", maxScenes
         { size: VIDEO_SIZE, shot_type: "multi", onTick });
     }
     emit(u.id, { status: "clip" });
-    u.clipPath = path.join(dir, `clip_${u.id}.mp4`);
-    await download(clip.url, u.clipPath);
+    if (!u._coverageDone) {
+      u.clipPath = path.join(dir, `clip_${u.id}.mp4`);
+      await download(clip.url, u.clipPath);
+    }
     // ---- CLIP QA (Feature 4): grade the MOTION — pull a late frame and check the take didn't morph the subject ----
     if (CLIP_QA && u.stillUrl) {
       try {
@@ -674,7 +735,15 @@ export async function showrun(input, { scenes = 3, source = "logline", maxScenes
     emit("_eval", { kpi: evaluation.score, dimensions: d });
   } catch (e) { log(`evaluation: error — ${e.message}`); }
 
-  return { title: p.title, finalPath, scenes: scenesPlan.length, kpi: evaluation?.score ?? null, evaluation };
+  // ---- SEASON: bank this film's cast so the next episode stars the same actors ----
+  if (seasonName) {
+    try {
+      const sv = saveCast(seasonName, { storyState, localRefByName, style: p.style, title: p.title });
+      log(`season: vault "${seasonName}" updated — ${sv.cast} cast member(s) banked`);
+    } catch (e) { log(`season: save failed — ${e.message}`); }
+  }
+
+  return { title: p.title, finalPath, scenes: scenesPlan.length, kpi: evaluation?.score ?? null, evaluation, season: seasonName || null };
 }
 
 
