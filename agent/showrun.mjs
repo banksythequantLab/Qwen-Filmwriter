@@ -12,7 +12,7 @@ import { clipReview, lastFrameDataUri } from "./clipQA.mjs";
 import { voiceForShot, voiceForScene } from "./voice.mjs";
 import { editorPlan, assembleEdit } from "./editor.mjs";
 import { buildSegment, concat, finalize } from "./stitch.mjs";
-import { video, keyframeVideo, download } from "../lib/qwen.mjs";
+import { video, keyframeVideo, r2v, download } from "../lib/qwen.mjs";
 import { architect, storyReview, contradictionCheck, replanBeats, identityReview } from "./story.mjs";
 import { buildState, stateForScene, lockedFacts } from "./state.mjs";
 import { throughline } from "./throughline.mjs";
@@ -466,7 +466,23 @@ export async function showrun(input, { scenes = 3, source = "logline", maxScenes
         clip = await i2vSpine();
       }
     } else if (u.role === "cutaway" || u.shot.mode === "i2v") {
-      clip = await video((u.prompts.motion_prompt || "subtle natural motion, slow cinematic camera move") + HOLD_CAST,
+      // EXPERIMENT (QWEN_R2V=1, off by default): reference-to-video preserves the referenced character
+      // DURING video generation — attacking the drift i2v can't (it only sees the first frame). Trades
+      // away the approved-still anchor for identity hold; falls back to i2v on any failure.
+      const R2V = process.env.QWEN_R2V === "1";
+      const r2vRefs = R2V ? [...Object.values(refByName).slice(0, 2), plateForScene[u.sceneId]].filter(Boolean) : [];
+      if (R2V && r2vRefs.length) {
+        try {
+          const legend = Object.keys(refByName).slice(0, 2).map((n, i) => `character${i + 1} is ${n}`).join("; ");
+          clip = await r2v(`${legend}. ${u.prompts.image_prompt}. ${u.prompts.motion_prompt || "subtle natural cinematic motion"}${HOLD_CAST}`,
+            r2vRefs, { duration: u.shot.duration, seed: seedOf(u.id + "-r2v"), onTick });
+          log(`   ${u.id} r2v take (${r2vRefs.length} ref(s))`);
+        } catch (e) {
+          log(`   ${u.id} r2v failed (${e.message.slice(0, 50)}) — i2v fallback`);
+          clip = null;
+        }
+      }
+      if (!clip) clip = await video((u.prompts.motion_prompt || "subtle natural motion, slow cinematic camera move") + HOLD_CAST,
         { imageUrl: u.stillUrl, resolution: "720P", duration: u.shot.duration, onTick });
     } else {
       clip = await video(`${u.prompts.image_prompt}. Overall style: ${p.style}. ${u.prompts.motion_prompt || ""}`.trim(),
