@@ -156,7 +156,7 @@ export async function showrun(input, { scenes = 3, source = "logline", maxScenes
       ...((chState?.locked || []).slice(0, 5).map((l) => `${ch.name}: ${l}`)),
     ].filter(Boolean).join("\n");
     const ref = await approvedStill(
-      `Full-body character model sheet of ${ch.name}, head to toe, showing the COMPLETE outfit and every accessory: ${refLook}. ${p.style}. Standing straight, front view, entire figure visible from head to feet, on a clean pure white seamless studio background, soft even lighting, subtle contact shadow only, no text.`,
+      `Full-body character model sheet of ${ch.name}, head to toe, showing the COMPLETE outfit and every accessory: ${refLook}. ${p.style}. ONE SINGLE full-body view only — exactly one figure, NOT a multi-panel sheet, no side-by-side variants, no turnaround views. Standing straight, front view, entire figure visible from head to feet, on a clean pure white seamless studio background, soft even lighting, subtle contact shadow only, no text.`,
       { size: "1328*1328", maxRetries: +(process.env.QWEN_REF_RETRIES ?? 2), seed: seedOf("ref" + i), canon: refCanon,
         onStep: (a, v, url) => { log(`   ref ${ch.name} ${a}: pass=${v.pass}`); emit(pid, { status: v.pass ? "frame" : "drawing", stillUrl: url, attempt: a, pass: v.pass }); },
         onLegal: (a, lv) => log(`   ref ${ch.name} legal ${a}: ${lv.pass ? "clear" : "FLAG " + (lv.ip_issue || lv.text_issue || "issue")}`) });
@@ -304,7 +304,12 @@ export async function showrun(input, { scenes = 3, source = "logline", maxScenes
           if (idr.review.consistent && !driftIn.length) log(`identity: characters consistent with references`);
           else log(`identity: drift ${driftIn.length} (${signals.identity.major} major / ${signals.identity.minor} minor)`);
           for (const d of driftIn.slice(0, 6)) {
-            log(`identity: drift S${d.id}${d.character ? " (" + d.character + ")" : ""}${d.issue ? " — " + d.issue : ""}`);
+            const isMajor = String(d.severity).toLowerCase() !== "minor";
+            log(`identity: drift S${d.id}${d.character ? " (" + d.character + ")" : ""}${isMajor ? "" : " [minor]"}${d.issue ? " — " + d.issue : ""}`);
+            // Only MAJOR drift earns a re-roll: v4 (5->7) and v6 (3->6) both showed that re-rolling
+            // for minor detail drift RANDOMIZES other details and produces net-more drift. Minors are
+            // logged and scored (5 pts each) but the frame is kept.
+            if (!isMajor) continue;
             if (!issueById.has(+d.id)) issueById.set(+d.id, `the character ${d.character || ""} looks different from their reference portrait — match the reference's face, hair and wardrobe exactly`);
             if (!weakIds.includes(+d.id)) weakIds.push(+d.id);
           }
@@ -435,6 +440,9 @@ export async function showrun(input, { scenes = 3, source = "logline", maxScenes
   const KEYFRAME = process.env.QWEN_KEYFRAME !== "0";
   log(`animate: ${units.length} clips (video x${VIDEO_CC} parallel)${KEYFRAME ? " · keyframe spine takes" : ""}`);
   const beatOf = (sid) => (p.scenes.find((s) => s.id === sid) || {}).beat || "";
+  // Anti-duplication clause for every image-anchored take: the most common motion-QA failure is the
+  // video model ADDING or duplicating figures ("5th figure appeared", "duplicate head") mid-clip.
+  const HOLD_CAST = " Keep exactly the same people as the source frame: do not add, remove, or duplicate any person or figure; the background crowd, if any, stays unchanged.";
   let clipChecked = 0, clipFlagged = 0;
   const CLIP_QA = process.env.QWEN_CLIP_QA !== "0";
   async function animateUnit(u) {
@@ -444,11 +452,11 @@ export async function showrun(input, { scenes = 3, source = "logline", maxScenes
     let clip;
     if (u.role === "spine") {
       const lastUrl = lastFrameForScene.get(u.sceneId);
-      const i2vSpine = () => video(u.prompts.motion_prompt || "slow cinematic camera move, continuous flowing take",
+      const i2vSpine = () => video((u.prompts.motion_prompt || "slow cinematic camera move, continuous flowing take") + HOLD_CAST,
         { imageUrl: u.stillUrl, resolution: "720P", shot_type: "multi", duration: u.takeDur, onTick });
       if (KEYFRAME && lastUrl && lastUrl !== u.stillUrl) {
         try {
-          clip = await keyframeVideo(u.stillUrl, lastUrl, u.prompts.motion_prompt || "smooth continuous cinematic camera move, single flowing take", { resolution: "720P", onTick });
+          clip = await keyframeVideo(u.stillUrl, lastUrl, (u.prompts.motion_prompt || "smooth continuous cinematic camera move, single flowing take") + HOLD_CAST, { resolution: "720P", onTick });
           log(`   ${u.id} keyframe take (first→last)`);
         } catch (e) {
           log(`   ${u.id} keyframe failed (${e.message.slice(0, 50)}) — i2v fallback`);
@@ -458,7 +466,7 @@ export async function showrun(input, { scenes = 3, source = "logline", maxScenes
         clip = await i2vSpine();
       }
     } else if (u.role === "cutaway" || u.shot.mode === "i2v") {
-      clip = await video(u.prompts.motion_prompt || "subtle natural motion, slow cinematic camera move",
+      clip = await video((u.prompts.motion_prompt || "subtle natural motion, slow cinematic camera move") + HOLD_CAST,
         { imageUrl: u.stillUrl, resolution: "720P", duration: u.shot.duration, onTick });
     } else {
       clip = await video(`${u.prompts.image_prompt}. Overall style: ${p.style}. ${u.prompts.motion_prompt || ""}`.trim(),
@@ -481,7 +489,7 @@ export async function showrun(input, { scenes = 3, source = "logline", maxScenes
             emit(u.id, { clip: "flag" });
             if (process.env.QWEN_CLIP_FIX !== "0") {   // ON by default: one steadier re-animation from the same still
               try {
-                const steadier = `${u.prompts.motion_prompt || "subtle natural motion"}. Keep the subject stable and on-model; ${cr.fix_hint || "no morphing, gentle camera move only"}.`;
+                const steadier = `${u.prompts.motion_prompt || "subtle natural motion"}. Keep the subject stable and on-model; ${cr.fix_hint || "no morphing, gentle camera move only"}.` + HOLD_CAST;
                 const re = await video(steadier, { imageUrl: u.stillUrl, resolution: "720P", duration: u.shot.duration || u.takeDur, onTick });
                 const rePath = u.clipPath.replace(/\.mp4$/i, "_fix.mp4");
                 await download(re.url, rePath);
