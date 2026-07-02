@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Filmwriter · Manage library</title>
+<style>
+  :root{--bg:#0b0e14;--card:#131824;--line:#232b3d;--tx:#dfe6f3;--dim:#8b96ad;--cy:#39d0d8;--gd:#caa84a;--rd:#e07a8a}
+  *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--tx);font:15px/1.5 system-ui,Segoe UI,Roboto,sans-serif}
+  header{display:flex;align-items:center;gap:12px;padding:18px 22px;border-bottom:1px solid var(--line)}
+  header h1{font-size:17px;margin:0}header .n{color:var(--dim);font-size:13px;margin-left:auto}
+  a{color:var(--cy);text-decoration:none}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px;padding:20px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:12px;overflow:hidden;display:flex;flex-direction:column}
+  .card video{width:100%;aspect-ratio:16/9;background:#000;display:block}
+  .meta{display:flex;align-items:center;gap:8px;padding:10px 12px}
+  .ttl{font-weight:600;font-size:14px;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .kpi{font-size:12px;border:1px solid;border-radius:20px;padding:2px 9px;white-space:nowrap;cursor:default}
+  .tag{color:var(--dim);font-size:12px;padding:0 12px 6px}
+  .row{display:flex;gap:8px;padding:0 12px 12px}
+  button{cursor:pointer;border-radius:8px;border:1px solid var(--line);background:#1a2133;color:var(--tx);padding:7px 12px;font-size:13px}
+  button.del{border-color:#5a2733;color:var(--rd)}button.del:hover{background:#2a1420}
+  button:disabled{opacity:.5;cursor:wait}
+  .empty{color:var(--dim);padding:40px;text-align:center}
+</style>
+</head>
+<body>
+<header>
+  <h1>🎞️ Manage library</h1>
+  <span class="n" id="count"></span>
+  <a href="/">← back to the studio</a>
+</header>
+<div class="grid" id="grid"></div>
+<div class="empty" id="empty" style="display:none">No films in the library.</div>
+<script>
+const el=(i)=>document.getElementById(i);
+const esc=(s)=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+let TOKEN=sessionStorage.getItem('admtok')||'';
+function kpiHtml(f){
+  if(f.kpi==null) return '';
+  const k=f.kpi, bc=k>=85?'#39d0d8':k>=70?'#caa84a':'#c45', tc=k>=85?'#39d0d8':k>=70?'#e0c46a':'#e07a8a';
+  const tip=f.dimensions?('continuity '+f.dimensions.continuity+' · identity '+f.dimensions.identity+(f.identity_split?' ('+f.identity_split.major+' maj / '+f.identity_split.minor+' min)':'')+' · beats '+f.dimensions.beats+' · through-line '+f.dimensions.throughline+(f.dimensions.craft!=null?' · craft '+f.dimensions.craft:'')):'overall quality';
+  return '<span class="kpi" style="border-color:'+bc+';color:'+tc+'" title="'+esc(tip)+'">KPI '+k+'</span>';
+}
+async function load(){
+  let d; try{ d=await (await fetch('/gallery')).json(); }catch{ el('empty').style.display=''; return; }
+  const films=(d.films||[]).filter(f=>f.kind);      // only deletable, auto-discovered films
+  el('count').textContent=films.length+' film(s)';
+  el('empty').style.display=films.length?'none':'';
+  el('grid').innerHTML=films.map(f=>
+    '<div class="card" id="card_'+esc(f.kind)+'_'+esc(f.id)+'">'+
+      '<video src="'+esc(f.film)+'" controls muted preload="metadata"></video>'+
+      '<div class="meta"><span class="ttl" title="'+esc(f.title)+'">'+esc(f.title)+'</span>'+kpiHtml(f)+'</div>'+
+      '<div class="tag">'+esc(f.tag)+' · '+esc(f.kind)+'/'+esc(f.id)+'</div>'+
+      '<div class="row"><button class="del" onclick="del(\''+esc(f.kind)+'\',\''+esc(f.id)+'\',this)">Delete</button></div>'+
+    '</div>').join('');
+}
+async function del(kind,id,btn){
+  if(!confirm('Delete "'+kind+'/'+id+'" permanently? This removes the whole film directory.')) return;
+  btn.disabled=true; btn.textContent='Deleting…';
+  const hdrs={}; if(TOKEN) hdrs['X-Admin-Token']=TOKEN;
+  let r=await fetch('/'+kind+'/'+encodeURIComponent(id),{method:'DELETE',headers:hdrs});
+  if(r.status===403){
+    TOKEN=prompt('Admin token required:')||''; sessionStorage.setItem('admtok',TOKEN);
+    if(TOKEN) r=await fetch('/'+kind+'/'+encodeURIComponent(id),{method:'DELETE',headers:{'X-Admin-Token':TOKEN}});
+  }
+  if(r.ok){ const c=el('card_'+kind+'_'+id); if(c) c.remove(); const n=document.querySelectorAll('.card').length; el('count').textContent=n+' film(s)'; el('empty').style.display=n?'none':''; }
+  else { btn.disabled=false; btn.textContent='Delete'; alert('Delete failed: '+r.status); }
+}
+load();
+</script>
+</body>
+</html>

@@ -1,6 +1,6 @@
 // server.mjs — Filmwriter web app + async job API. No deps. node --env-file=.env server.mjs
 import { createServer } from "node:http";
-import { createReadStream, existsSync, statSync, readFileSync, readdirSync } from "node:fs";
+import { createReadStream, existsSync, statSync, readFileSync, readdirSync, rmSync } from "node:fs";
 import { randomUUID } from "node:crypto";
 import path from "node:path";
 import { showrun } from "./agent/showrun.mjs";
@@ -62,20 +62,24 @@ const server = createServer(async (req, res) => {
     return json(res, 200, { service: "filmwriter", endpoints: ["POST /showrun", "GET /jobs/:id", "GET /jobs/:id/film", "GET /gallery", "GET /gallery/:id/film"], active: jobs.size });
 
   if (req.method === "GET" && p[0] === "gallery" && !p[1]) {
-    let made = [];
-    try {
-      const base = path.join(ROOT, "output/jobs");
-      made = readdirSync(base)
-        .map(id => ({ id, mp4: path.join(base, id, "final.mp4") }))
-        .filter(x => existsSync(x.mp4))
-        .map(x => {
-          let title = "Generated film";
-          try { title = JSON.parse(readFileSync(path.join(base, x.id, "storyboard.json"), "utf8")).plan?.title || title; } catch {}
-          return { id: x.id, title, tag: "Just generated", film: `/made/${x.id}/film`, mtime: statSync(x.mp4).mtimeMs, ...(() => { try { const e = JSON.parse(readFileSync(path.join(base, x.id, "evaluation.json"), "utf8")); return { kpi: e.score ?? null, dimensions: e.dimensions || null, identity_split: e.identity_split || null }; } catch { return { kpi: null, dimensions: null, identity_split: null }; } })() };
-        })
-        .sort((a, b) => b.mtime - a.mtime)
-        .map(({ mtime, ...rest }) => rest);
-    } catch {}
+    // Auto-discover finished films from BOTH film roots: one-off jobs and season episodes.
+    const discover = (base, kind, tag) => {
+      try {
+        return readdirSync(path.join(ROOT, base))
+          .map(id => ({ id, dir: path.join(ROOT, base, id), mp4: path.join(ROOT, base, id, "final.mp4") }))
+          .filter(x => existsSync(x.mp4))
+          .map(x => {
+            let title = "Generated film";
+            try { title = JSON.parse(readFileSync(path.join(x.dir, "storyboard.json"), "utf8")).plan?.title || title; } catch {}
+            let extra = { kpi: null, dimensions: null, identity_split: null };
+            try { const e = JSON.parse(readFileSync(path.join(x.dir, "evaluation.json"), "utf8")); extra = { kpi: e.score ?? null, dimensions: e.dimensions || null, identity_split: e.identity_split || null }; } catch {}
+            return { id: x.id, kind, title, tag, film: `/${kind}/${x.id}/film`, mtime: statSync(x.mp4).mtimeMs, ...extra };
+          });
+      } catch { return []; }
+    };
+    const made = [...discover("output/jobs", "made", "Just generated"), ...discover("output/episodes", "episode", "Season episode")]
+      .sort((a, b) => b.mtime - a.mtime)
+      .map(({ mtime, ...rest }) => rest);
     const seed = GALLERY.filter(g => existsSync(path.join(ROOT, g.file))).map(g => ({ id: g.id, title: g.title, tag: g.tag, film: `/gallery/${g.id}/film` }));
     return json(res, 200, { films: [...made, ...seed] });
   }
@@ -88,6 +92,28 @@ const server = createServer(async (req, res) => {
     const f = path.join(ROOT, "output/jobs", path.basename(p[1]), "final.mp4");
     if (!existsSync(f)) return json(res, 404, { error: "no such film" });
     return streamMp4(req, res, f);
+  }
+  if ((req.method === "GET" || req.method === "HEAD") && p[0] === "episode" && p[1] && p[2] === "film") {
+    const f = path.join(ROOT, "output/episodes", path.basename(p[1]), "final.mp4");
+    if (!existsSync(f)) return json(res, 404, { error: "no such film" });
+    return streamMp4(req, res, f);
+  }
+  // ---- MANAGE: view + prune the library. DELETE removes the film's whole output directory.
+  // Guard: when ADMIN_TOKEN is set (do this on any public deploy), deletes require the matching
+  // X-Admin-Token header; without the env var, deletes are allowed (local dev convenience).
+  if (req.method === "GET" && p[0] === "manage" && !p[1]) {
+    const f = path.join(ROOT, "public", "manage.html");
+    if (existsSync(f)) { res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" }); return res.end(readFileSync(f)); }
+    return json(res, 404, { error: "no manage page" });
+  }
+  if (req.method === "DELETE" && (p[0] === "made" || p[0] === "episode") && p[1] && !p[2]) {
+    const want = process.env.ADMIN_TOKEN || "";
+    if (want && req.headers["x-admin-token"] !== want) return json(res, 403, { error: "bad admin token" });
+    const base = p[0] === "made" ? "output/jobs" : "output/episodes";
+    const dir = path.join(ROOT, base, path.basename(p[1]));
+    if (!existsSync(path.join(dir, "final.mp4"))) return json(res, 404, { error: "no such film" });
+    try { rmSync(dir, { recursive: true, force: true }); return json(res, 200, { ok: true, deleted: `${p[0]}/${p[1]}` }); }
+    catch (e) { return json(res, 500, { error: e.message }); }
   }
   if ((req.method === "GET" || req.method === "HEAD") && p[0] === "hero.mp4") {
     const f = path.join(ROOT, "public", "hero.mp4");
