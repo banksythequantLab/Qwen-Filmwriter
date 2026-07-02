@@ -4,3 +4,6 @@ output/
 *.mp4
 *.png
 *.wav
+
+# session/run logs (agents write _*.log next to the repo)
+_*.log
