@@ -664,6 +664,9 @@ export async function showrun(input, { scenes = 3, source = "logline", maxScenes
   try {
     const evalFrames = [...new Map(units.filter((u) => u.stillUrl).map((u) => [u.sceneId, u.stillUrl])).values()].slice(0, 8);
     evaluation = await evaluate({ plan: p, signals, frames: evalFrames });
+    // Persist the severity split so the gallery/job UI can show WHY identity scored what it did.
+    if (signals.identity && (signals.identity.major != null || signals.identity.minor != null))
+      evaluation.identity_split = { major: signals.identity.major || 0, minor: signals.identity.minor || 0 };
     writeFileSync(path.join(dir, "evaluation.json"), JSON.stringify(evaluation, null, 2));
     const d = evaluation.dimensions;
     log(`evaluation: KPI ${evaluation.score}/100 — continuity ${d.continuity} · identity ${d.identity} · beats ${d.beats} · through-line ${d.throughline}${d.craft != null ? ` · craft ${d.craft}` : ""}`);

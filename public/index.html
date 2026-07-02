@@ -355,7 +355,7 @@ const CREW=[
  {id:'board',av:'🎨', nm:'Vee Dax',        rl:'Storyboard',   act:'Drawing the boards', idle:'Standing by', done:'Boards complete'},
  {id:'cont', av:'👁️', nm:'Iris Calder',    rl:'Continuity',   act:'Checking every frame', idle:'Standing by', done:'Continuity approved', flag:'Reshoot — a detail drifted'},
  {id:'legal',av:'⚖️', nm:'Avery Sloan',    rl:'Legal · Clearances', act:'Clearing rights & text', idle:'Standing by', done:'Cleared for release', flag:'Infringement — reroll ordered'},
- {id:'shoot',av:'🎥', nm:'Sergio Ray',     rl:'Cinematographer', act:'Rolling camera',  idle:'Standing by', done:'Footage in the can'},
+ {id:'shoot',av:'🎥', nm:'Sergio Ray',     rl:'Cinematographer', act:'Rolling camera',  idle:'Standing by', done:'Footage in the can', flag:'Re-take — motion drifted', fixed:'Re-take verified — flag cleared'},
  {id:'edit', av:'🎞️', nm:'Max Cutter',     rl:'Editor',       act:'Cutting the picture', idle:'Standing by', done:"That's a wrap"},
 ];
 function crewStates(t,panels,status){
@@ -370,6 +370,7 @@ function crewStates(t,panels,status){
   const lm=t.match(/legal \d+: (clear|FLAG)(?![\s\S]*legal \d+: (?:clear|FLAG))/); const legalFlag=!!(lm&&lm[1]==='FLAG');
   const storyFix=has(/story-fix:/);
   const storyFlag=has(/story: arc needs work|story-fix: unresolved/)||(has(/story-review: some frames miss|story-review: weak frame/)&&!storyFix);
+  const cq=t.match(/clip-qa: (FLAG|re-animated steadier)(?![\s\S]*clip-qa: (?:FLAG|re-animated steadier))/); const clipFlag=!!(cq&&cq[1]==='FLAG'), clipFixed=!!(cq&&cq[1]!=='FLAG');
   return {scenes,total,stills,clips,
     show: done?'done':'active',
     write: ph>=1?'done':'active',
@@ -377,7 +378,7 @@ function crewStates(t,panels,status){
     board: ph>=3?'done':(ph>=1?'active':'idle'),
     cont:  ph>=4?'done':(ph===3?(lastFail?'flag':'active'):'idle'),
     legal: ph>=4?'done':(ph===3?(legalFlag?'flag':'active'):'idle'),
-    shoot: ph>=5?'done':(ph===4?'active':'idle'),
+    shoot: ph>=5?'done':(ph===4?(clipFlag?'flag':(clipFixed?'fixed':'active')):'idle'),
     edit:  ph>=6?'done':(ph===5?'active':'idle')};
 }
 function fmtT(ms){ if(ms<0)ms=0; const s=Math.floor(ms/1000); return (Math.floor(s/60))+':'+String(s%60).padStart(2,'0'); }
@@ -390,9 +391,9 @@ function renderCrew(t,panels,status){
     const elapsed=_jobStart?fmtT(Date.now()-_jobStart):'';
     cr.innerHTML=CREW.map(a=>{
       const s=st[a.id]||'idle';
-      let say = s==='flag'?(a.flag||a.act) : s==='done'?a.done : s==='active'?a.act : a.idle;
+      let say = s==='flag'?(a.flag||a.act) : s==='fixed'?(a.fixed||a.act) : s==='done'?a.done : s==='active'?a.act : a.idle;
       if(a.id==='write'&&s==='done'&&st.scenes) say='Script locked · '+st.scenes+' scenes';
-      const badge = s==='idle'?'hold' : s==='done'?'wrap' : s==='flag'?'reshoot' : 'live';
+      const badge = s==='idle'?'hold' : s==='done'?'wrap' : s==='flag'?'reshoot' : s==='fixed'?'wrap' : 'live';
       let count='';
       if(s==='active'){
         if(a.id==='board'||a.id==='cont') count=st.stills+' / '+(st.total||'…')+' frames';
@@ -450,7 +451,7 @@ function done(j){
   const f='/jobs/'+j.id+'/film';
   el('film').src=f; el('filmtitle').textContent=j.title||'Your film'; el('dl').href=f;
   const kb=el('filmkpi');
-  if(kb&&j.kpi!=null){ const k=j.kpi, bc=k>=85?'#39d0d8':k>=70?'#caa84a':'#c45', tc=k>=85?'#39d0d8':k>=70?'#e0c46a':'#e07a8a'; kb.style.display=''; kb.style.borderColor=bc; kb.style.color=tc; kb.textContent='KPI '+k+(j.dimensions&&j.dimensions.continuity!=null?' · Cont '+j.dimensions.continuity:''); if(j.dimensions) kb.title='continuity '+j.dimensions.continuity+' · identity '+j.dimensions.identity+' · beats '+j.dimensions.beats+' · through-line '+j.dimensions.throughline+(j.dimensions.craft!=null?' · craft '+j.dimensions.craft:''); }
+  if(kb&&j.kpi!=null){ const k=j.kpi, bc=k>=85?'#39d0d8':k>=70?'#caa84a':'#c45', tc=k>=85?'#39d0d8':k>=70?'#e0c46a':'#e07a8a'; kb.style.display=''; kb.style.borderColor=bc; kb.style.color=tc; kb.textContent='KPI '+k+(j.dimensions&&j.dimensions.continuity!=null?' · Cont '+j.dimensions.continuity:''); if(j.dimensions) kb.title='continuity '+j.dimensions.continuity+' · identity '+j.dimensions.identity+(j.identity_split?' ('+j.identity_split.major+' major / '+j.identity_split.minor+' minor)':'')+' · beats '+j.dimensions.beats+' · through-line '+j.dimensions.throughline+(j.dimensions.craft!=null?' · craft '+j.dimensions.craft:''); }
   else if(kb){ kb.style.display='none'; }
   el('result').style.display='block'; el('go').disabled=false;
   el('result').scrollIntoView({behavior:'smooth',block:'center'});
@@ -468,7 +469,7 @@ async function loadGallery(){
   el('gallery').innerHTML=(d.films||[]).map(f=>
     '<div class="card"><video src="'+f.film+'" muted loop playsinline controls preload="metadata" '+
     'onmouseover="this.play()" onmouseout="this.pause()"></video>'+
-    '<div class="cap"><span class="ct">'+esc(f.title)+'</span>'+(f.kpi!=null?'<span class="cg" style="border-color:'+(f.kpi>=85?'#39d0d8':f.kpi>=70?'#caa84a':'#c45')+';color:'+(f.kpi>=85?'#39d0d8':f.kpi>=70?'#e0c46a':'#e07a8a')+'" title="'+(f.dimensions?('continuity '+f.dimensions.continuity+' · identity '+f.dimensions.identity+' · beats '+f.dimensions.beats+' · through-line '+f.dimensions.throughline+(f.dimensions.craft!=null?' · craft '+f.dimensions.craft:'')):'overall quality')+'">KPI '+f.kpi+(f.dimensions&&f.dimensions.continuity!=null?' · Cont '+f.dimensions.continuity:'')+'</span>':'<span class="cg">'+esc(f.tag)+'</span>')+'</div></div>'
+    '<div class="cap"><span class="ct">'+esc(f.title)+'</span>'+(f.kpi!=null?'<span class="cg" style="border-color:'+(f.kpi>=85?'#39d0d8':f.kpi>=70?'#caa84a':'#c45')+';color:'+(f.kpi>=85?'#39d0d8':f.kpi>=70?'#e0c46a':'#e07a8a')+'" title="'+(f.dimensions?('continuity '+f.dimensions.continuity+' · identity '+f.dimensions.identity+(f.identity_split?' ('+f.identity_split.major+' major / '+f.identity_split.minor+' minor)':'')+' · beats '+f.dimensions.beats+' · through-line '+f.dimensions.throughline+(f.dimensions.craft!=null?' · craft '+f.dimensions.craft:'')):'overall quality')+'">KPI '+f.kpi+(f.dimensions&&f.dimensions.continuity!=null?' · Cont '+f.dimensions.continuity:'')+'</span>':'<span class="cg">'+esc(f.tag)+'</span>')+'</div></div>'
   ).join('')||'<p class="sub">No films yet — direct one above.</p>';
 }
 el('chips').innerHTML=EX.map(t=>'<span class="chip">'+esc(t)+'</span>').join('');
