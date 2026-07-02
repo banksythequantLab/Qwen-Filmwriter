@@ -296,11 +296,13 @@ export async function showrun(input, { scenes = 3, source = "logline", maxScenes
         signals.story = { tells_story: sr.review.tells_story !== false, weak: weakIds.length, unresolved: weakIds.length, sampled: sampled.length };
 
         // ---- IDENTITY: do the characters still match their reference sheets? (objective re-roll trigger) ----
+        const sevSplit = (arr) => ({ major: arr.filter((d) => String(d.severity).toLowerCase() !== "minor").length, minor: arr.filter((d) => String(d.severity).toLowerCase() === "minor").length });
         const idr = await identityReview(refByName, toFrames(sampled));
         if (idr.ok) {
           const driftIn = (idr.review.drift || []).filter((d) => sampleByScene.has(+d.id));
-          signals.identity = { drift: driftIn.length, sampled: sampled.length };
+          signals.identity = { drift: driftIn.length, ...sevSplit(driftIn), sampled: sampled.length };
           if (idr.review.consistent && !driftIn.length) log(`identity: characters consistent with references`);
+          else log(`identity: drift ${driftIn.length} (${signals.identity.major} major / ${signals.identity.minor} minor)`);
           for (const d of driftIn.slice(0, 6)) {
             log(`identity: drift S${d.id}${d.character ? " (" + d.character + ")" : ""}${d.issue ? " — " + d.issue : ""}`);
             if (!issueById.has(+d.id)) issueById.set(+d.id, `the character ${d.character || ""} looks different from their reference portrait — match the reference's face, hair and wardrobe exactly`);
@@ -340,8 +342,9 @@ export async function showrun(input, { scenes = 3, source = "logline", maxScenes
               const idr2 = await identityReview(refByName, toFrames(sampled));
               if (idr2.ok) {
                 const stillDrift = (idr2.review.drift || []).filter((d) => sampleByScene.has(+d.id));
-                log(`identity: re-check after fixes — drift ${signals.identity.drift} -> ${stillDrift.length}`);
-                signals.identity.drift = stillDrift.length;
+                const sv = sevSplit(stillDrift);
+                log(`identity: re-check after fixes — drift ${signals.identity.drift} -> ${stillDrift.length} (${sv.major} major / ${sv.minor} minor)`);
+                signals.identity = { ...signals.identity, drift: stillDrift.length, ...sv };
               } else log(`identity: re-check skipped — keeping pre-fix drift count`);
             }
           }

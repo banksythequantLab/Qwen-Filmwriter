@@ -32,8 +32,16 @@ export async function evaluate({ plan, signals = {}, frames = [] } = {}, { model
   const st = signals.story || { tells_story: true, weak: 0, unresolved: 0 };
   const beats = clamp((st.tells_story === false ? 65 : 90) - Math.min(30, 8 * (st.unresolved ?? st.weak ?? 0)));
 
+  // Severity-weighted identity. The old 12-per-drift/60-cap formula SATURATED: any >=5 drift
+  // complaints scored a flat 40 whether the character became a different person or a prop changed
+  // shade — four straight runs read 40 while complaint granularity visibly improved, and the
+  // reshoot targeter burned its budget on an axis that could not move. Now a MAJOR drift (reads as
+  // a different character) costs 18, a MINOR one (same character, off detail) costs 5, cap 80.
+  // Legacy signals without severity count everything as major (conservative, scores LOWER than before).
   const id = signals.identity || { drift: 0 };
-  const identity = clamp(100 - Math.min(60, 12 * (id.drift || 0)));
+  const idMajor = Number.isFinite(+id.major) ? +id.major : (id.drift || 0);
+  const idMinor = Number.isFinite(+id.minor) ? +id.minor : 0;
+  const identity = clamp(100 - Math.min(80, 18 * idMajor + 5 * idMinor));
 
   // ---- holistic craft judge over the actual final frames ----
   let craft = null, critique = "";

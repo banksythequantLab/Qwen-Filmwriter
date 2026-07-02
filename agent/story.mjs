@@ -146,10 +146,13 @@ export async function replanBeats(plan, state, conflicts, { model = "qwen-max" }
 const IDENTITY_SYS = `You are a CONTINUITY SUPERVISOR checking that CHARACTERS look the same across a film's frames as in their reference portraits.
 The FIRST images are labeled CHARACTER REFERENCES (one per named character). The LATER images are SCENE FRAMES, each with its beat.
 For each scene frame, if a named character the beat implies is present, judge whether that character's FACE, HAIR, and WARDROBE clearly match their reference. Allow differences in lighting, camera angle, distance, and expression. Flag ONLY clear identity drift — a different-looking person, the wrong hair, or the wrong outfit on a main character.
+Classify each drift's severity:
+- "major" = a viewer would think this is a DIFFERENT person or character: different face, different build, a wholly different outfit, or the character replaced entirely.
+- "minor" = clearly the SAME recognizable character, but one detail is off: a prop's color or shade, an accessory variant, a pattern or trim nuance, slight hair styling difference.
 Return STRICT JSON ONLY (no markdown):
 {
   "consistent": boolean,
-  "drift": [{"id": number, "character": string, "issue": string}]
+  "drift": [{"id": number, "character": string, "severity": "major"|"minor", "issue": string}]
 }`;
 
 // refByName: { name -> referenceUrl }; frames: [{ id, beat, url }] (caller samples/caps).
