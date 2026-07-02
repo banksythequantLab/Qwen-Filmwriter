@@ -6,7 +6,7 @@ import { plan } from "./planner.mjs";
 import { adapt } from "./planner.mjs";
 import { shotlist } from "./shotlist.mjs";
 import { promptgen } from "./promptgen.mjs";
-import { approvedStill } from "./visualQA.mjs";
+import { approvedStill, refineAnchor } from "./visualQA.mjs";
 import { adjacentContinuityReview } from "./continuity.mjs";
 import { clipReview, lastFrameDataUri } from "./clipQA.mjs";
 import { voiceForShot, voiceForScene } from "./voice.mjs";
@@ -160,6 +160,14 @@ export async function showrun(input, { scenes = 3, source = "logline", maxScenes
       { size: "1328*1328", maxRetries: +(process.env.QWEN_REF_RETRIES ?? 2), seed: seedOf("ref" + i), canon: refCanon,
         onStep: (a, v, url) => { log(`   ref ${ch.name} ${a}: pass=${v.pass}`); emit(pid, { status: v.pass ? "frame" : "drawing", stillUrl: url, attempt: a, pass: v.pass }); },
         onLegal: (a, lv) => log(`   ref ${ch.name} legal ${a}: ${lv.pass ? "clear" : "FLAG " + (lv.ip_issue || lv.text_issue || "issue")}`) });
+    // ANCHOR REFINEMENT: t2i has failed this QA 3-of-3 in every observed run — dense head-to-toe
+    // specs don't land in one roll. Correct the best attempt via image-edit instead of rolling again.
+    if (!ref.approved && ref.url && refCanon && process.env.QWEN_REF_REFINE !== "0") {
+      const rr = await refineAnchor(ref.url, ref.verdict, refLook, refCanon, {
+        tries: +(process.env.QWEN_REF_REFINE_TRIES ?? 3), seed: seedOf("reffix" + i),
+        onRound: (r, v) => log(`   ref ${ch.name} refine ${r}: ${v.error ? "error — " + String(v.error).slice(0, 60) : v.pass ? "canon PASS" : "still off — " + ((v.violations || []).slice(0, 2).join("; ") || "unverified")}`) });
+      if (rr.url) { ref.url = rr.url; ref.approved = rr.approved || ref.approved; }
+    }
     if (ref.url) { refByName[ch.name] = ref.url; emit(pid, { status: "frame", stillUrl: ref.url }); await download(ref.url, path.join(dir, `character_ref_${i}.png`)); }
     if (!referenceUrl) referenceUrl = ref.url;
   }

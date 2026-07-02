@@ -98,6 +98,30 @@ export async function bibleReview(imageUrl, canon, { model = "qwen3-vl-plus" } =
   catch { return { pass: true, violations: [], fix_hint: "", _skipped: true }; }
 }
 
+// ---- ANCHOR REFINEMENT: a model sheet that FAILED QA is usually MOSTLY right. Instead of another
+// fresh t2i roll (which re-randomizes everything), CORRECT the best attempt with qwen-image-edit —
+// fixing only the named violations — then re-audit against the locked canon. Repeats until the
+// canon audit passes or tries run out. Even an unapproved correction is kept: it was moved TOWARD
+// the spec, which beats the raw reject. Returns { url, approved }.
+export async function refineAnchor(startUrl, startVerdict, refLook, canon, { tries = 2, seed, onRound } = {}) {
+  let url = startUrl, approved = false;
+  let issues = [startVerdict?.fix_hint, ...(startVerdict?.issues || [])].filter(Boolean).join("; ");
+  for (let r = 1; r <= tries; r++) {
+    const instruction = `Edit this character model sheet. FIX ONLY the following problems, changing nothing else about the character, pose, framing, or background: ${issues || "bring the outfit exactly into the spec below"}. The character MUST exactly match this head-to-toe spec: ${refLook}. Keep the full figure visible head to feet, front view, clean pure white seamless studio background, no text.`;
+    let fixed;
+    try { fixed = await imageEdit(url, instruction, { ...(Number.isInteger(seed) ? { seed: seed + r } : {}) }); }
+    catch (e) { if (onRound) onRound(r, { error: e.message }); break; }
+    if (!fixed?.url) { if (onRound) onRound(r, { error: "no image returned" }); break; }
+    url = fixed.url;
+    const bib = await bibleReview(url, canon);
+    if (onRound) onRound(r, bib);
+    if (bib._skipped) break;                       // judge unreachable — keep the edit, stop honestly unverified
+    if (bib.pass) { approved = true; break; }
+    issues = [(bib.violations || []).join("; "), bib.fix_hint].filter(Boolean).join("; ");
+  }
+  return { url, approved };
+}
+
 // Generate -> QA -> LEGAL clearance -> regenerate (feeding fix hints + legal negatives back) until pass or maxRetries.
 export async function approvedStill(imagePrompt, { maxRetries = 3, size, onStep, onLegal, onInspect, referenceUrl, seed, promptExtend = false, storyNeed = "", canon = "" } = {}) {
   const baseNeg = "text, words, letters, captions, subtitles, signage, watermark, logo, garbled text, distorted typography, neon signs, billboards, advertisements, shop signs, kanji, glyphs, readable symbols, posters, graffiti, copyrighted character, trademarked franchise character, superhero costume, masked vigilante in spandex, web-pattern bodysuit, comic-book emblem, cape, branded logo, mascot, celebrity likeness, nsfw, nudity, gore";
