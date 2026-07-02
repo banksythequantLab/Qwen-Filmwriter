@@ -260,7 +260,9 @@ export async function showrun(input, { scenes = 3, source = "logline", maxScenes
   for (const s of (p.scenes || [])) canonById[s.id] = storyState ? stateForScene(storyState, s) : "";
   log(`storyboard: ${units.length} panels (stills x${STILL_CC} parallel)`);
   await mapLimit(units, STILL_CC, async (u) => {
-    const imgPrompt = `${u.prompts.image_prompt}. Overall style: ${p.style}`;
+    // Inline the LOCKED CANON into the FIRST-attempt prompt too — until now only re-roll prompts
+    // carried it, so every initial panel was generated without ever being told the wardrobe lock.
+    const imgPrompt = `${u.prompts.image_prompt}. Overall style: ${p.style}.${canonById[u.sceneId] ? ` LOCKED CANON — keep these EXACT, identical every shot: ${String(canonById[u.sceneId]).replace(/\n/g, " | ")}.` : ""}`;
     const still = await approvedStill(imgPrompt, { referenceUrl: (process.env.QWEN_PROPREFS === "1" ? withRefs(pickRefs(u, refByName, plateForScene[u.sceneId] || referenceUrl), plateForScene[u.sceneId], pickPropRefs(u, propRefByName)) : withPlate(pickRefs(u, refByName, plateForScene[u.sceneId] || referenceUrl), plateForScene[u.sceneId])), size: STILL_SIZE, seed: seedOf(u.id),
       storyNeed: needById[u.sceneId] || "", canon: canonById[u.sceneId] || "",
       onStep: (a, v, url) => { log(`   ${u.id} still ${a}: pass=${v.pass}`); emit(u.id, { status: v.pass ? "frame" : "drawing", stillUrl: url, attempt: a, pass: v.pass }); },
