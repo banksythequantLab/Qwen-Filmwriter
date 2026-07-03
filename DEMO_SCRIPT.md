@@ -1,66 +1,61 @@
-# Filmwriter — 3-Minute Demo Video Script
+# Filmwriter — 3-Minute Demo Video Script (v2, Jul 2)
 
-**Target length:** 2:45–3:00. **Format:** screen recording + voiceover (record VO with your own voice or qwen3-tts).
-**Assets you already have:** `output/longtake_demo/final.mp4`, `output/continuity_film/final.mp4`, `output/film/final.mp4`, `output/continuity/ref.png` + `scene1/2.png`, `character_ref.png`, and the terminal logs from a live `showrun`.
+**Target length:** 2:45–3:00. **Format:** screen recording + voiceover.
+**VO:** pre-generated in Derek's cloned voice — segments in `demo_assets/vo_s1.wav … vo_s6.wav` (FreeClone/VoxCPM2). Re-record live if preferred; the text is below.
+**Hero assets:** `output/episodes/warlords-sniper/final.mp4` (Silent Sights, KPI 91), `output/episodes/warlords-sniper-ep2/final.mp4` (Lena returns — season vault), `output/episodes/forgotten-god/final.mp4`, live `/` app page + `/manage`, terminal log of a run.
 
-> Golden rule for judges: show the AGENTS DECIDING, not just a pretty clip. The story is autonomy + judgment + continuity.
+> Golden rule for judges: show the AGENTS DECIDING and CORRECTING THEMSELVES, not just a pretty clip. The story is autonomy + judgment + a cast that comes back.
 
 ---
 
-## 0:00–0:20 — Cold open (the promise)
+## S1 · 0:00–0:20 — Cold open
 
-**On screen:** Black. Type one line into a terminal:
-`node --env-file=.env demo.mjs "A lonely android busker in a neon megacity discovers it can dream."`
-Then cut to ~4 seconds of a finished film playing (`output/continuity_film/final.mp4`), fading in.
+**On screen:** Black. One line typed into the app's logline box (or terminal). Cut to ~6s of *Silent Sights* playing.
 
-**VO:**
-> "This is the only thing I gave it — one sentence. No shot list, no images, no edits. A few minutes later, this came out. Let me show you what happened in between."
+**VO (vo_s1.wav):**
+> "I gave it one sentence — a sniper, a warlord, a prince. No shot list, no images, no edits. Twenty-four minutes later it handed me this — and graded its own work at ninety-one."
 
-## 0:20–0:45 — The thesis
+## S2 · 0:20–0:45 — Thesis
 
-**On screen:** Title card: **Filmwriter — an autonomous AI showrunner on Qwen Cloud.** Then the architecture diagram (`ARCHITECTURE.md` Mermaid, or a clean slide).
+**On screen:** Title card: **Filmwriter — an autonomous AI showrunner on Qwen Cloud.** Architecture diagram.
 
-**VO:**
-> "Every text-to-video demo stops at a single clip. But a film isn't a clip — it's decisions. How many scenes? Where do you hold a long take versus cut a montage? Does the lead look like the same person in shot seven as in shot one? Filmwriter makes all of those decisions — with a team of Qwen agents, and no human in the loop."
+**VO (vo_s2.wav):**
+> "Every text-to-video demo stops at a single clip. A film is decisions. How many scenes. Long take or montage. Does your lead still look like your lead in shot seven. Filmwriter makes every one of those calls with a crew of Qwen agents — and no human in the loop."
 
-## 0:45–1:30 — Watch the agents think (the core)
+## S3 · 0:45–1:35 — The crew corrects itself (the core)
 
-**On screen:** The live `showrun` terminal log scrolling. Highlight these lines as the VO hits them:
-- `title: Dreams of Neon | 3 scenes | style: Cyberpunk...`
-- `scene 1 [longtake] -> 3 shot(s)` / `scene 2 [montage] -> 2 shot(s)` / `scene 3 [longtake]`
-- `reference: Echo ...`
-- `still 1: pass=false` → `still 2: pass=true`
+**On screen:** The live crew panel on `/` while a job runs — then terminal highlights in order: `ref … pass=false` → `refine 1: canon PASS`; `continuity: break … re-rolled to match`; `clip-qa: FLAG` → `re-animated steadier, verified, flag cleared`; `vo: take runs 3.6s over a 3.0s scene — shortening, re-taking`.
 
-**VO:**
-> "First a planner breaks the logline into scenes, a style, and characters. Then for every scene, a director makes a real directorial call — montage, or long take. Here it chose long take for the performance, montage for the in-between beats, on its own.
-> A prompt agent writes each shot. Then a vision agent reviews every generated frame against its prompt — and when something's wrong, it regenerates. That's the model catching its own mistakes."
+**VO (vo_s3.wav):**
+> "Watch the crew. When the character sheet misses its locked wardrobe, an editor doesn't reroll the dice — it corrects the exact violations and audits again. A script supervisor grades every cut and reshoots breaks. Motion QA compares each animated take to its approved frame — bad takes get re-shot and must pass review to make the film. Even the narrator gets a table read: lines that would be cut off mid-sentence get shortened and re-taken. We ran the same logline seven times while hardening this: continuity breaks fell from nine to three."
 
-## 1:30–2:10 — Continuity (the money shot)
+## S4 · 1:35–2:15 — The cast comes back (the differentiator)
 
-**On screen:** Split screen. Left: `output/continuity/ref.png` (the character reference). Right: `scene1.png` then `scene2.png` — same android, different scenes. Then overlay the Qwen-VL verdict text: **"SAME — same face, eyes, chrome design."**
+**On screen:** Split: Lena's anchor PNG from the season vault | Lena in Episode 1 | Lena in Episode 2. Caption: **same actor, new story — zero re-casting.**
 
-**VO:**
-> "Here's the hardest part of making a film with AI: keeping your cast. Generate each shot from scratch and your lead is a different person every time. So Filmwriter generates one character reference, then renders every shot from it using Qwen's image-edit model. We checked it with Qwen's own vision model — same character, new scene. That consistency runs through the whole film, including the long takes."
+**VO (vo_s4.wav):**
+> "Here's what makes it a showrunner and not a film generator: it runs a show. A finished film banks its cast — the audited character sheet, the locked wardrobe — into a season vault. Ask for another episode and the same actors walk back on set. This is Lena, episode one. This is Lena, episode two — same face, same coat, different war."
 
-## 2:10–2:40 — The output (payoff)
+## S5 · 2:15–2:40 — Sound + self-grading
 
-**On screen:** Play `output/longtake_demo/final.mp4` full-frame (the long-take cut with narration), then a quick beat of `output/continuity_film/final.mp4`. Show the file in a player with audio on.
+**On screen:** `/manage` grid with KPI badges; hover a badge to show the dimension tooltip (identity major/minor split). Then the evaluation log line.
 
-**VO:**
-> "The long take gets cut against its own footage with an edit list the model writes. Narration is generated and mixed. ffmpeg stitches it, adds a fade — and that's a finished short. Every frame, every cut, every line of narration: decided and produced by Qwen agents."
+**VO (vo_s5.wav):**
+> "Every take of narration is transcribed back with Qwen's speech recognition and must actually say the script. And every finished film grades itself — continuity, identity, beats, through-line, craft — from the QA signals the crew produced, not vibes. When our own metric saturated, the system's judge got recalibrated too."
 
-## 2:40–3:00 — Close (what it is)
+## S6 · 2:40–3:00 — Close
 
-**On screen:** Slide: the model table from the README (qwen-max, qwen-plus, qwen3-vl-plus, qwen-image-plus, qwen-image-edit-max, wan2.6, qwen3-tts-flash). End card: **Filmwriter · One logline in. A finished short out.** + GitHub URL.
+**On screen:** Model table slide (qwen-max · qwen-plus · qwen3-vl-plus · qwen-image-plus · qwen-image-edit-max · wan2.6 i2v/kf2v/r2v · qwen3-tts-flash · qwen3-asr-flash). End card: **Filmwriter · One logline in. A season out.** + GitHub URL + filmwriter.tlz.us.
 
-**VO:**
-> "Seven Qwen models, one autonomous showrunner, running on Alibaba Cloud. The frontier in AI video isn't a better clip — it's judgment. Filmwriter. One logline in, a finished short out."
+**VO (vo_s6.wav):**
+> "Nine Qwen models. One autonomous studio, self-correcting at every department, running on Alibaba Cloud. Filmwriter. One logline in — a season out."
 
 ---
 
 ## Recording checklist
-- [ ] Re-run one clean `showrun` and screen-record the terminal (best decision logs: a 3-scene run that picks mixed strategies).
-- [ ] Have the three `final.mp4`s open and ready to scrub.
-- [ ] Export the architecture diagram as an image for the title section.
-- [ ] Keep total runtime under 3:00 (Devpost hard limit is typically 3 min).
-- [ ] Upload to YouTube/Vimeo **unlisted or public** (not private) and paste the link into Devpost.
+- [ ] Screen-record a live 3-scene run on `/` (crew panel visible) — the ep2 runs produce ideal logs.
+- [ ] Screenshot Lena's vault anchor (`output/seasons/warlords-sniper/cast_0.png`) + a matching frame from each episode.
+- [ ] `/manage` hover for the KPI tooltip shot.
+- [ ] Use the pre-cut VO in `demo_assets/` or re-record; keep under 3:00.
+- [ ] Upload YouTube/Vimeo unlisted-or-public; paste link into Devpost.
+- [ ] Separate video: deployment proof (ECS console, `systemctl status filmwriter`, external curl of filmwriter.tlz.us) per DEPLOY.md §6.
