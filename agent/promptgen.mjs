@@ -22,7 +22,7 @@ export async function promptgen(shot, { style, characters, setting, beat = "", i
   const ctx = `FILM: ${title}\nSTYLE: ${style}${motif ? `\nRECURRING MOTIF: ${motif}` : ""}\nCHARACTERS: ${JSON.stringify(characters)}${canon ? `\n\nLOCKED CONTINUITY FACTS (depict EXACTLY, identical in every shot — never vary): ${String(canon).replace(/\n/g, " | ")}` : ""}${storySoFar ? `\n\nSTORY SO FAR:\n${storySoFar}` : ""}\nSTORY BEAT: ${beat}${intent ? `\nBEAT INTENT: ${intent}` : ""}\nSETTING: ${setting}\nSHOT: ${JSON.stringify(shot)}${req}`;
   const { text, usage } = await chat(
     [{ role: "system", content: SYS }, { role: "user", content: ctx }],
-    { model, temperature: 0.8, max_tokens: 600 }
+    { model, temperature: 0.8, max_tokens: 1000 }
   );
   const o = parseJson(text);
   return { image_prompt: o.image_prompt, motion_prompt: o.motion_prompt, usage };
