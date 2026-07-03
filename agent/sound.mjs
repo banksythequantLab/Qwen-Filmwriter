@@ -14,8 +14,9 @@ Judge the SCRIPT AS A WHOLE:
 (1) one_voice — every line sounds like the SAME narrator (person, tense, tone).
 (2) no_repeats — no line repeats another line's phrasing or information.
 (3) advances — each line advances the through-line; it never merely describes the visible action.
-(4) fits — each line is speakable inside its scene: MAX 28 words. Longer lines get CUT OFF mid-sentence in the final film.
-For every line that fails ANY check, REWRITE it: same narrator voice, same story purpose, 28 words or fewer.
+(4) fits — each line is speakable inside its scene: MAX 45 words (roughly two short sentences). Longer lines get CUT OFF mid-sentence in the final film.
+(5) exposition — the lines together must let a first-time viewer FOLLOW the story: who this is, where we are, what is at stake. Vague mood lines that explain nothing fail this check.
+For every line that fails ANY check, REWRITE it: same narrator voice, same story purpose, 45 words or fewer.
 Return STRICT JSON ONLY (no markdown): {"ok": boolean, "issues": [string], "rewrites": [{"id": number, "line": string}]}
 "issues" are short phrases (max 10 words each). "rewrites" contains ONLY scenes that need a new line — keep good lines untouched.`;
 

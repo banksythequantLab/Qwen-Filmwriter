@@ -491,7 +491,7 @@ export async function showrun(input, { scenes = 3, source = "logline", maxScenes
   const beatOf = (sid) => (p.scenes.find((s) => s.id === sid) || {}).beat || "";
   // Anti-duplication clause for every image-anchored take: the most common motion-QA failure is the
   // video model ADDING or duplicating figures ("5th figure appeared", "duplicate head") mid-clip.
-  const HOLD_CAST = " Keep exactly the same people as the source frame: do not add, remove, or duplicate any person or figure; the background crowd, if any, stays unchanged.";
+  const HOLD_CAST = " Keep exactly the same people and objects as the source frame: do not add, remove, or duplicate any person, figure, prop, or vehicle; keep the same location, weather, and lighting; the background stays unchanged.";
   let clipChecked = 0, clipFlagged = 0;
   const CLIP_QA = process.env.QWEN_CLIP_QA !== "0";
   async function animateUnit(u) {
