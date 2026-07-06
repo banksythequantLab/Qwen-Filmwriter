@@ -7,3 +7,6 @@ output/
 
 # session/run logs (agents write _*.log next to the repo)
 _*.log
+
+# large deployed video assets (hosted on Cloudflare Pages, not tracked)
+landing/media/*.mp4
