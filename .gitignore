@@ -10,3 +10,5 @@ _*.log
 
 # large deployed video assets (hosted on Cloudflare Pages, not tracked)
 landing/media/*.mp4
+# keep committed doc images
+!docs/*.png

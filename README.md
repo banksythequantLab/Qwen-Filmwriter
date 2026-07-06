@@ -53,6 +53,6 @@ node --env-file=.env server.mjs
 
 ## Architecture
 
-![Filmwriter architecture](docs/architecture.svg)
+![Filmwriter architecture](docs/architecture.png)
 
 One logline in, a season out: writers' room -> self-correcting production crew -> self-grade -> film + season vault. Nine models on Qwen Cloud.
