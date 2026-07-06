@@ -136,6 +136,8 @@ const server = createServer(async (req, res) => {
   }
 
   if (req.method === "POST" && p[0] === "showrun") {
+    const wantD = process.env.ADMIN_TOKEN || "";
+    if (wantD && req.headers["x-admin-token"] !== wantD) return json(res, 403, { error: "directing is restricted to the owner" });
     const { logline, chapter, scenes = 3, maxScenes = 24, aspect = "16:9", season = "" } = await body(req);
     const input = (chapter && String(chapter).trim()) || logline;
     if (!input) return json(res, 400, { error: "logline or chapter required" });

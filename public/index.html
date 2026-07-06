@@ -57,6 +57,13 @@ a{color:var(--cyan);text-decoration:none}
 .reel video{display:block;width:100%;aspect-ratio:16/9;object-fit:cover;background:#000;transform:scale(1.0);transform-origin:center;transition:aspect-ratio .35s ease, transform .35s ease}
 .reel.a-11{max-width:520px}
 .reel.a-916{max-width:360px}
+.episodes{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;max-width:1000px;margin:22px auto 0}
+.ep{margin:0;border:1px solid var(--line,rgba(255,255,255,.12));border-radius:14px;overflow:hidden;background:#0b0b0c}
+.ep video{display:block;width:100%;aspect-ratio:16/9;background:#000}
+.ep figcaption{display:flex;flex-direction:column;gap:3px;padding:11px 13px}
+.ep-title{font-weight:600;font-size:14px}
+.ep-meta{font-size:11px;color:var(--dim,#8a8a92);letter-spacing:.04em}
+@media(max-width:760px){.episodes{grid-template-columns:1fr}}
 .reel.a-11 video{aspect-ratio:1/1;transform:scale(1)}
 .reel.a-916 video{aspect-ratio:9/16;transform:scale(1)}
 .reel::after{content:"";position:absolute;inset:0;pointer-events:none;box-shadow:inset 0 0 110px rgba(0,0,0,.55);border-radius:16px}
@@ -274,6 +281,16 @@ a{color:var(--cyan);text-decoration:none}
   </div>
 
   <div class="sec">
+    <h2>Full episodes</h2>
+    <p class="sub">Long-form stories the showrunner planned, shot, scored, and cut end to end — watch them in full.</p>
+    <div class="episodes">
+      <figure class="ep"><video src="https://tlz.us/media/whispers-of-the-forgotten.mp4" controls preload="metadata" playsinline></video><figcaption><span class="ep-title">Whispers of the Forgotten</span><span class="ep-meta">6 scenes · KPI 75</span></figcaption></figure>
+      <figure class="ep"><video src="https://tlz.us/media/guardian-of-steel.mp4" controls preload="metadata" playsinline></video><figcaption><span class="ep-title">The Guardian of Steel</span><span class="ep-meta">6 scenes · KPI 77</span></figcaption></figure>
+      <figure class="ep"><video src="https://tlz.us/media/crosshairs-of-destiny.mp4" controls preload="metadata" playsinline></video><figcaption><span class="ep-title">Crosshairs of Destiny</span><span class="ep-meta">6 scenes · KPI 89</span></figcaption></figure>
+    </div>
+  </div>
+
+  <div class="sec">
     <h2>Films it has already directed</h2>
     <p class="sub">Each one generated end-to-end from a single logline on Qwen Cloud — montage, long-take, and character-continuity examples.</p>
     <div class="grid" id="gallery"></div>
@@ -431,7 +448,7 @@ async function run(){
   el('termtitle').textContent=title; buildPipe();
   el('stage').scrollIntoView({behavior:'smooth',block:'start'});
   let r;
-  try{ r=await (await fetch('/showrun',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)})).json(); }
+  try{ const _resp=await fetch('/showrun',{method:'POST',headers:{'Content-Type':'application/json','x-admin-token':(localStorage.getItem('fw_key')||'')},body:JSON.stringify(payload)}); if(_resp.status===403){ return fail('Directing is limited to the owner.'); } r=await _resp.json(); }
   catch(e){ return fail('Could not reach the server.'); }
   if(!r.jobId) return fail(r.error||'Failed to start.');
   clearInterval(polling); poll(r.jobId); polling=setInterval(()=>poll(r.jobId),1500);
