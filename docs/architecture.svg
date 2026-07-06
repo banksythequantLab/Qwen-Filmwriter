@@ -1,0 +1,111 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1920 1080" font-family="'Segoe UI','Helvetica Neue',Arial,sans-serif">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#0a0f1c"/><stop offset="1" stop-color="#05070f"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0.5" cy="0.4" r="0.62">
+      <stop offset="0" stop-color="#1c3f78" stop-opacity="0.55"/><stop offset="1" stop-color="#1c3f78" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="beam" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#3aa0ff" stop-opacity="0.15"/><stop offset="0.55" stop-color="#7fd6ff" stop-opacity="0.95"/><stop offset="1" stop-color="#ffb867" stop-opacity="0.95"/>
+    </linearGradient>
+    <linearGradient id="title" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#eef4ff"/><stop offset="1" stop-color="#b9d1ff"/>
+    </linearGradient>
+    <linearGradient id="card" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#121a2b"/><stop offset="1" stop-color="#0b1120"/>
+    </linearGradient>
+    <linearGradient id="crew" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#2a1a12"/><stop offset="1" stop-color="#170e08"/>
+    </linearGradient>
+    <pattern id="sprk" width="80" height="54" patternUnits="userSpaceOnUse">
+      <rect x="26" y="17" width="28" height="20" rx="5" fill="#0d1120"/>
+    </pattern>
+    <marker id="ah" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M2 1L8 5L2 9" fill="none" stroke="context-stroke" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+    </marker>
+  </defs>
+
+  <rect width="1920" height="1080" fill="url(#bg)"/>
+  <rect width="1920" height="1080" fill="url(#glow)"/>
+  <rect x="0" y="0" width="1920" height="54" fill="#04060b"/><rect x="0" y="0" width="1920" height="54" fill="url(#sprk)"/>
+  <rect x="0" y="1026" width="1920" height="54" fill="#04060b"/><rect x="0" y="1026" width="1920" height="54" fill="url(#sprk)"/>
+
+  <text x="960" y="152" text-anchor="middle" font-size="66" font-weight="800" letter-spacing="16" fill="url(#title)">FILMWRITER</text>
+  <rect x="852" y="174" width="216" height="3" rx="1.5" fill="url(#beam)"/>
+  <text x="960" y="208" text-anchor="middle" font-size="19" letter-spacing="7" fill="#8090ac">AUTONOMOUS AI SHOWRUNNER &#183; ONE LOGLINE IN, A SEASON OUT</text>
+
+  <rect x="150" y="368" width="1620" height="6" rx="3" fill="url(#beam)" opacity="0.4"/>
+  <rect x="150" y="370" width="1620" height="2" rx="1" fill="#9fe0ff" opacity="0.5"/>
+
+  <g>
+    <rect x="120" y="310" width="250" height="120" rx="16" fill="url(#card)" stroke="#2b4a7a" stroke-width="1"/>
+    <rect x="120" y="310" width="6" height="120" rx="3" fill="#5aa9ff"/>
+    <text x="150" y="352" font-size="15" letter-spacing="3" fill="#5f7bb0">INPUT</text>
+    <text x="150" y="386" font-size="26" font-weight="700" fill="#eaf1ff">One logline</text>
+    <text x="150" y="414" font-size="15" fill="#8391ad">the only human input</text>
+  </g>
+
+  <g>
+    <rect x="460" y="310" width="270" height="120" rx="16" fill="url(#card)" stroke="#3a3080" stroke-width="1"/>
+    <rect x="460" y="310" width="6" height="120" rx="3" fill="#9a86ff"/>
+    <text x="490" y="352" font-size="15" letter-spacing="3" fill="#7b6fc0">WRITERS' ROOM</text>
+    <text x="490" y="386" font-size="24" font-weight="700" fill="#eaf1ff">Plan the show</text>
+    <text x="490" y="414" font-size="15" fill="#8391ad">scenes &#183; shot list &#183; arc</text>
+  </g>
+
+  <g>
+    <rect x="770" y="266" width="480" height="300" rx="18" fill="url(#crew)" stroke="#a4571f" stroke-width="1.5"/>
+    <rect x="770" y="266" width="6" height="300" rx="3" fill="#ff9a3c"/>
+    <text x="800" y="308" font-size="15" letter-spacing="3" fill="#c98a4a">THE ENGINE</text>
+    <text x="800" y="342" font-size="28" font-weight="800" fill="#ffd9b0">Production crew</text>
+    <text x="800" y="368" font-size="16" fill="#c69a72">self-correcting &#183; every scene, every department</text>
+    <g>
+      <rect x="794" y="392" width="432" height="44" rx="9" fill="#20140c" stroke="#54331a" stroke-width="1"/>
+      <text x="812" y="420" font-size="16" fill="#f2c9a2">Art + wardrobe &#8594; visual QA &#8594; fix &amp; re-audit</text>
+      <text x="1204" y="421" font-size="20" fill="#ff9a3c" text-anchor="end">&#8635;</text>
+    </g>
+    <g>
+      <rect x="794" y="446" width="432" height="44" rx="9" fill="#20140c" stroke="#54331a" stroke-width="1"/>
+      <text x="812" y="474" font-size="16" fill="#f2c9a2">Animate &#8594; motion QA &#8594; reshoot bad takes</text>
+      <text x="1204" y="475" font-size="20" fill="#ff9a3c" text-anchor="end">&#8635;</text>
+    </g>
+    <g>
+      <rect x="794" y="500" width="432" height="44" rx="9" fill="#20140c" stroke="#54331a" stroke-width="1"/>
+      <text x="812" y="528" font-size="16" fill="#f2c9a2">Narrate &#8594; ASR read-back &#8594; re-take</text>
+      <text x="1204" y="529" font-size="20" fill="#ff9a3c" text-anchor="end">&#8635;</text>
+    </g>
+  </g>
+
+  <g>
+    <rect x="1290" y="310" width="270" height="120" rx="16" fill="url(#card)" stroke="#1f6a5c" stroke-width="1"/>
+    <rect x="1290" y="310" width="6" height="120" rx="3" fill="#33c9a6"/>
+    <text x="1320" y="352" font-size="15" letter-spacing="3" fill="#3f9a86">SELF-GRADE</text>
+    <text x="1320" y="386" font-size="24" font-weight="700" fill="#eaf1ff">Grades itself</text>
+    <text x="1320" y="414" font-size="15" fill="#8391ad">KPI from real QA signals</text>
+  </g>
+
+  <g>
+    <rect x="1600" y="310" width="200" height="120" rx="16" fill="url(#card)" stroke="#8a6a20" stroke-width="1"/>
+    <rect x="1600" y="310" width="6" height="120" rx="3" fill="#ffc861"/>
+    <text x="1630" y="352" font-size="15" letter-spacing="3" fill="#b08a3c">OUTPUT</text>
+    <text x="1630" y="386" font-size="23" font-weight="700" fill="#eaf1ff">Film + vault</text>
+    <text x="1630" y="414" font-size="15" fill="#8391ad">cast banked</text>
+  </g>
+
+  <path d="M1700 434 C1724 672 1330 672 1252 552" fill="none" stroke="#ffc861" stroke-width="2" stroke-dasharray="2 7" stroke-linecap="round" marker-end="url(#ah)" opacity="0.85"/>
+  <text x="1476" y="702" text-anchor="middle" font-size="16" letter-spacing="2" fill="#c9a45c">ask for another episode &#8594; the same actors walk back on set</text>
+
+  <text x="960" y="906" text-anchor="middle" font-size="16" letter-spacing="5" fill="#5f7099">NINE MODELS &#183; QWEN CLOUD &#183; ALIBABA CLOUD</text>
+  <g font-size="15" fill="#a8c8ff" text-anchor="middle">
+    <rect x="205" y="930" width="150" height="42" rx="21" fill="#0e1728" stroke="#26436e"/><text x="280" y="957">qwen-max</text>
+    <rect x="375" y="930" width="150" height="42" rx="21" fill="#0e1728" stroke="#26436e"/><text x="450" y="957">qwen-plus</text>
+    <rect x="545" y="930" width="150" height="42" rx="21" fill="#0e1728" stroke="#26436e"/><text x="620" y="957">qwen3-vl</text>
+    <rect x="715" y="930" width="150" height="42" rx="21" fill="#0e1728" stroke="#26436e"/><text x="790" y="957">qwen-image</text>
+    <rect x="885" y="930" width="170" height="42" rx="21" fill="#0e1728" stroke="#26436e"/><text x="970" y="957">qwen-image-edit</text>
+    <rect x="1075" y="930" width="150" height="42" rx="21" fill="#0e1728" stroke="#26436e"/><text x="1150" y="957">wan2.6</text>
+    <rect x="1245" y="930" width="160" height="42" rx="21" fill="#0e1728" stroke="#26436e"/><text x="1325" y="957">wan2.2-kf2v</text>
+    <rect x="1425" y="930" width="150" height="42" rx="21" fill="#0e1728" stroke="#26436e"/><text x="1500" y="957">qwen3-tts</text>
+    <rect x="1595" y="930" width="150" height="42" rx="21" fill="#0e1728" stroke="#26436e"/><text x="1670" y="957">qwen3-asr</text>
+  </g>
+</svg>

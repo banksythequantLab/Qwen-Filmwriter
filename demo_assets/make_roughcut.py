@@ -72,7 +72,8 @@ run([FF, "-i", "slate5.mp4", "-i", "vo_s5.wav", "-map", "0:v", "-map", "1:a", "-
 
 # S6: end card
 d = vd[6] + 1.0
-slate([("FILMWRITER", 64, 240), ("qwen-max · qwen-plus · qwen3-vl · qwen-image · wan2.6 · tts · asr", 22, 350),
+slate([("FILMWRITER", 64, 240), ("qwen-max · qwen-plus · qwen3-vl · qwen-image · qwen-image-edit", 22, 322),
+       ("wan2.6 · wan2.2-kf2v · qwen3-tts · qwen3-asr", 22, 358),
        ("github.com/banksythequantLab/Qwen-Filmwriter", 26, 410), ("filmwriter.tlz.us", 26, 460)], d, "slate6.mp4")
 run([FF, "-i", "slate6.mp4", "-i", "vo_s6.wav", "-map", "0:v", "-map", "1:a", "-t", str(d)] + ENC + ["seg6.mp4"]); segs.append("seg6.mp4")
 

@@ -49,3 +49,10 @@ node --env-file=.env server.mjs
 - [x] Async job HTTP API
 - [ ] Alibaba Cloud ECS deployment + proof recording
 - [ ] 3-minute demo video
+
+
+## Architecture
+
+![Filmwriter architecture](docs/architecture.svg)
+
+One logline in, a season out: writers' room -> self-correcting production crew -> self-grade -> film + season vault. Nine models on Qwen Cloud.
