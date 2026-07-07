@@ -12,3 +12,4 @@ _*.log
 landing/media/*.mp4
 # keep committed doc images
 !docs/*.png
+_*.jpg

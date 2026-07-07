@@ -38,9 +38,14 @@ vd = {i: dur(f"vo_s{i}.wav") for i in range(1, 7)}
 print("VO durations:", {k: round(v, 1) for k, v in vd.items()})
 segs = []
 
-# S1: Silent Sights plays under the cold open
-d = vd[1] + 0.7
-seg(["-ss", "2", "-i", EP1], "vo_s1.wav", "seg1.mp4", d); segs.append("seg1.mp4")
+# S1: Guardian-of-Steel film with the cold-open statement overlaid, under vo_s1
+CARD = "cold_open_card.png"
+GUARDIAN = os.path.join(R, "output/episodes/hero-ai-long/final.mp4")
+d = vd[1] + 0.6
+run([FF, "-ss", "3", "-i", GUARDIAN, "-loop", "1", "-i", CARD, "-i", "vo_s1.wav",
+     "-filter_complex",
+     "[0:v]scale=1280:720:force_original_aspect_ratio=increase,crop=1280:720,fps=30[bg];[1:v]scale=1280:720[ov];[bg][ov]overlay=0:0[v]",
+     "-map", "[v]", "-map", "2:a", "-t", str(d)] + ENC + ["seg1.mp4"]); segs.append("seg1.mp4")
 
 # S2: title slate
 d = vd[2] + 0.5
