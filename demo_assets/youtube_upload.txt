@@ -1,0 +1,62 @@
+FILMWRITER — YOUTUBE UPLOAD PACKAGE (final)
+Video: https://youtu.be/lLd9ybvhK_Q
+
+============================================================
+TITLE
+============================================================
+Filmwriter — One Sentence In, a Full Film Out | AI Showrunner on Qwen Cloud
+
+============================================================
+DESCRIPTION
+============================================================
+I gave Filmwriter one sentence. Twenty-four minutes later it handed me a finished two-minute film — no shot list, no images, no edits.
+
+Filmwriter is an autonomous AI showrunner built on Qwen Cloud. You type one logline; a crew of eight Qwen-powered agents writes it, storyboards it, shoots it, scores it, checks its own frames, and cuts the final film — with no human in the loop. When a shot breaks continuity, drifts on motion, or trips a legal/clearance check, the crew re-shoots it until it clears QC, then self-grades the result. Finished films bank their cast in a "season vault," so the same characters walk back on set for the next episode.
+
+It's honestly not fully baked — the hardest shots still slip — but that's the whole thesis: every pass makes the showrunner better, and it grades its own progress.
+
+HOW IT WORKS
+• A crew of 8 agents: Showrunner, Screenwriter, Story Editor, Storyboard, Continuity, Legal & Clearances, Cinematographer, Editor
+• Self-correcting: each department fixes the exact violation and re-audits — seven runs took continuity breaks from 9 down to 3
+• A Legal & Clearances agent screens every frame for trademarks, logos, and legible on-screen text
+• Season vault → recurring cast; one-off clips become episodes
+• Every finished film grades itself: continuity, identity, beats, through-line, craft
+• Runs on nine models on Qwen Cloud / Alibaba Cloud (qwen-max, qwen-plus, qwen3-vl, qwen-image, qwen-image-edit, wan2.6, wan2.2-kf2v, qwen3-tts, qwen3-asr)
+
+The honest tradeoff: every fix is another model call, so quality has a price — balancing quality against cost is the real engineering problem.
+
+LINKS
+▶ Live: https://filmwriter.tlz.us
+▶ Code: https://github.com/banksythequantLab/Qwen-Filmwriter
+
+Built for the Global AI Hackathon · Qwen Cloud (Alibaba Cloud).
+
+CHAPTERS
+0:00 Cold open
+0:13 What it is
+0:32 The crew of 8 agents
+1:56 Season vault
+2:22 It grades itself
+2:52 Nine models on Qwen Cloud
+
+#Qwen #QwenCloud #AlibabaCloud #AI #AIfilmmaking #AIvideo #AIagents #texttovideo #generativeAI #Filmwriter
+
+============================================================
+TAGS  (comma-separated)
+============================================================
+Filmwriter, Qwen, Qwen Cloud, Alibaba Cloud, AI showrunner, autonomous AI, AI agents, multi-agent AI, agentic AI, AI filmmaking, AI film, AI video, text to video, image to video, generative video, generative AI, AI director, self-correcting AI, wan2.6, AI movie, AI cinema, AI storytelling, LLM agents, AI continuity, AI film crew, Global AI Hackathon, DashScope, Tongyi Qianwen, AI video generation, one prompt film
+
+============================================================
+SETTINGS
+============================================================
+Category: Science & Technology
+Language: English
+License: Standard YouTube License
+Comments: On
+Audience: Not made for kids
+Thumbnail: title_card.png (the 3x2 explainer)
+
+============================================================
+PINNED COMMENT
+============================================================
+Filmwriter turns one sentence into a finished film — directed, checked, and cut by a crew of 8 AI agents on Qwen Cloud, no human in the loop. Try it: https://filmwriter.tlz.us · Code: https://github.com/banksythequantLab/Qwen-Filmwriter
