@@ -1,0 +1,61 @@
+FILMWRITER — X (TWITTER) THREAD  (Blog Post Prize — journey building on Qwen Cloud)
+Post as a thread. Each tweet is under 280 chars. Suggested image per tweet in [brackets].
+After posting, paste the thread URL into the submission.
+
+------------------------------------------------------------
+1/  [image: closing_card.png  — or a cold-open frame]
+I gave an AI one sentence. 24 minutes later it handed me a finished 2-minute film — written, shot, scored, checked & cut by a crew of 8 agents on Qwen Cloud. No human in the loop.
+
+Here's how we built Filmwriter 🧵
+
+------------------------------------------------------------
+2/
+Every text-to-video demo stops at ONE clip.
+
+But a film is thousands of decisions: how many scenes, long take or montage, does your lead still look like your lead in shot 7?
+
+We wanted AI agents to make ALL of them — and fix their own mistakes.
+
+------------------------------------------------------------
+3/  [image: architecture.png]
+Filmwriter runs on 9 models on Qwen Cloud (DashScope):
+
+qwen-max + qwen-plus plan & write · qwen3-vl runs visual + legal QA · qwen-image/-edit for stills · wan2.6 for video · qwen3-tts narrates · qwen3-asr checks the read-back.
+
+------------------------------------------------------------
+4/  [image: agentcards_contact.png  — the 8-agent lineup]
+A conductor orchestrates a crew of 8 agents: Showrunner, Screenwriter, Story Editor, Storyboard, Continuity, Legal & Clearances, Cinematographer, Editor.
+
+Each inspects its own work, flags the exact violation, and re-shoots until it clears QC.
+
+------------------------------------------------------------
+5/  [image: pointcards/point_09_full.png  — the 9->3 stat]
+Continuity nearly broke us. Reference-anchoring hit diminishing returns fast.
+
+What worked: a streaming re-roll where the crew catches its own drift. Over 7 runs of the same logline, continuity breaks fell from 9 → 3.
+
+------------------------------------------------------------
+6/
+The honest part: iteration isn't a straight line. Some loops made it WORSE.
+
+And every fix is another model call — so quality has a price. Balancing quality vs cost was the real engineering problem, not the models.
+
+------------------------------------------------------------
+7/
+What makes it a *showrunner*, not a clip generator: a finished film banks its cast in a "season vault."
+
+Ask for another episode and the same character walks back on set. One-off clips become a series.
+
+------------------------------------------------------------
+8/
+It's honestly not fully baked — the hardest shots still slip. But that's the thesis: every pass makes it better, and it grades its own progress.
+
+Built on Qwen Cloud / Alibaba Cloud in ~3 weeks.
+
+------------------------------------------------------------
+9/
+▶ Try it: https://filmwriter.tlz.us
+💻 Code: https://github.com/banksythequantLab/Qwen-Filmwriter
+🎬 Video: https://youtu.be/lLd9ybvhK_Q
+
+#Qwen #QwenCloud #AlibabaCloud #AI #AIfilmmaking #AIagents #texttovideo #generativeAI

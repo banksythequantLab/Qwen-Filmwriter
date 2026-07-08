@@ -1,0 +1,89 @@
+FILMWRITER — PROJECT SUBMISSION TEXT
+Live: https://filmwriter.tlz.us  ·  Code: https://github.com/banksythequantLab/Qwen-Filmwriter  ·  Video: https://youtu.be/lLd9ybvhK_Q
+(Trim any field to fit the form's limits.)
+
+============================================================
+PROJECT NAME
+============================================================
+Filmwriter
+
+============================================================
+TAGLINE (elevator pitch)
+============================================================
+An autonomous AI showrunner on Qwen Cloud — one sentence in, a full film out.
+
+============================================================
+WHAT IT DOES
+============================================================
+Filmwriter turns a single logline into a finished short film — written, storyboarded, shot, scored, checked, and cut entirely by a crew of eight Qwen-powered agents, with no human in the loop. When a frame breaks continuity, drifts on motion, or trips a legal/clearance check, the crew re-shoots it until it clears quality control, then the film grades itself. Finished films bank their cast in a "season vault," so the same characters return for the next episode — clips become a series.
+
+============================================================
+INSPIRATION
+============================================================
+Every text-to-video demo stops at a single clip. But a film is thousands of decisions: how many scenes, long take or montage, does your lead still look like your lead in shot seven. We wanted to know whether a team of AI agents could make all of those calls and correct their own mistakes — producing not just a clip, but a directed film, and a season.
+
+============================================================
+HOW WE BUILT IT
+============================================================
+• Nine models on Qwen Cloud / Alibaba Cloud (DashScope): qwen-max and qwen-plus (planning + writing), qwen3-vl (visual QA + legal/clearance review), qwen-image and qwen-image-edit (stills), wan2.6 and wan2.2-kf2v (image-to-video), qwen3-tts (narration), qwen3-asr (read-back verification).
+• A crew of 8 agents — Showrunner, Screenwriter, Story Editor, Storyboard, Continuity, Legal & Clearances, Cinematographer, Editor — orchestrated by a conductor.
+• A self-correction loop: each department inspects its own output, flags the exact violation, and re-rolls or re-shoots until it passes review; streaming animation overlaps QA with rendering.
+• A season vault that banks the audited character sheet + locked wardrobe so episodes reuse the same cast.
+• Self-grading: every film scores itself on continuity, identity, beats, through-line, and craft — from the crew's real QA signals, not guesswork.
+• Node.js backend on Alibaba Cloud ECS, served over a Cloudflare tunnel, with a live web app.
+
+============================================================
+CHALLENGES WE RAN INTO
+============================================================
+• Continuity is the hard problem. Reference anchoring hit diminishing returns; the streaming re-roll is the real workhorse. Over seven runs of the same logline, continuity breaks fell from nine to three.
+• The quality-vs-cost tradeoff: every correction is another model call, so more iteration means a better film but a bigger bill. Balancing them is the real engineering problem.
+• Iteration isn't a straight line — not every loop improved things; some performed worse.
+• Keeping on-screen text legible and avoiding IP infringement required a dedicated Legal & Clearances agent.
+
+============================================================
+ACCOMPLISHMENTS
+============================================================
+• A genuinely autonomous pipeline: one sentence to a finished, self-graded film — and a series.
+• A self-correcting crew that catches and fixes its own mistakes and knows its own score.
+• Honest engineering — we can point to exactly where it still slips and why.
+
+============================================================
+WHAT WE LEARNED
+============================================================
+• Single figure + fixed wardrobe + few scenes is the best case; flowing wardrobe + many cuts is the worst.
+• Self-correction beats brute-force reference anchoring.
+• The economics (cost per model call) are as much the problem as the quality.
+
+============================================================
+WHAT'S NEXT
+============================================================
+• Close the gap on the hardest continuity shots.
+• Richer episodic seasons and animated, living agent cards.
+• Drive down cost-per-film.
+
+============================================================
+BUILT WITH
+============================================================
+Qwen (qwen-max, qwen-plus, qwen3-vl, qwen-image, qwen-image-edit, qwen3-tts, qwen3-asr), Wan (wan2.6, wan2.2-kf2v), Qwen Cloud, DashScope, Alibaba Cloud, Node.js, Cloudflare, Python, FFmpeg, VoxCPM, Claude (Anthropic)
+
+============================================================
+LINKS
+============================================================
+Live demo: https://filmwriter.tlz.us
+Source: https://github.com/banksythequantLab/Qwen-Filmwriter
+Video: https://youtu.be/lLd9ybvhK_Q
+
+============================================================
+AI TOOLS USED
+============================================================
+Qwen Cloud (Alibaba Cloud / DashScope) - the entire generative engine (nine models):
+  qwen-max, qwen-plus (planning + screenwriting), qwen3-vl (visual + legal/clearance QA),
+  qwen-image, qwen-image-edit (stills + reference locking), wan2.6, wan2.2-kf2v (image-to-video),
+  qwen3-tts (narration), qwen3-asr (narration read-back verification).
+
+Claude (Anthropic) - AI pair-programmer for the whole build: the agent pipeline, the Node.js
+  backend, the self-correction logic, deployment, and the full submission package (demo-video
+  assembly, all graphics/cards, architecture diagram, and the writeups).
+
+VoxCPM (self-hosted FreeClone service) - voice cloning that produced the demo narration in the
+  creator's own cloned voice.
